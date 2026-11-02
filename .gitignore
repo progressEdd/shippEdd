@@ -3,8 +3,6 @@
 !02-worktrees/.gitkeep
 !02-worktrees/README.md
 
-# shippEdd agent assets (symlink to 02-worktrees/master)
-.agents/shippEdd
 
 # Byte-compiled / optimized / DLL files
 __pycache__/
