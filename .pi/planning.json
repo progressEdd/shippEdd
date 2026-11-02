@@ -1,0 +1,7 @@
+{
+  "models": {
+    "researcher": "glm-5.3-flash",
+    "planner": "glm-5.3",
+    "verifier": "glm-5.3"
+  }
+}

@@ -14,3 +14,10 @@
 3. **Worktrees** — If a `02-worktrees` folder exists in the project root, create git worktrees by default when branching. Follow the conventions described in the `02-worktrees/README.md` for naming, structure, and usage.
 
 4. Reusable agent assets live in `.agents/` — skills in `.agents/skills/`, and any scripts a skill needs should stay inside that skill's own folder (e.g. on the progressEdd branch `.agents/skills/log-sessions/scripts/`).
+## Workflow
+
+This repo runs **shippEdd** — a phase loop (discuss → research → plan → execute → verify → ship) driven by explicit skills.
+
+- Workflow state lives in `.planning/`. `ROADMAP.md` is the source of truth for what's next; `STATE.md` frontmatter (`next_action`, `progress`) is the machine-read surface.
+- Phases advance **only** via explicit skills: `/skill:define`, `/skill:implement`, `/skill:review`. Nothing auto-fires.
+- Stray work → `/skill:todo`. Lost → `/skill:wayfind`.
