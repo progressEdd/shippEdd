@@ -17,7 +17,7 @@ set -euo pipefail
 here="$(cd "$(dirname "$0")" && pwd)"
 root="$(git rev-parse --show-toplevel 2>/dev/null || pwd)"
 runs="$root/$("$here/state-dir.sh")/runs"
-runs_disp="${runs#"$root/"}"   # repo-relative for every printed path, e.g. .planning/runs
+runs_disp="${runs#"$root"/}"   # repo-relative for every printed path, e.g. .planning/runs
 mkdir -p "$runs"
 
 if [ "${1:-}" = "--status" ]; then
