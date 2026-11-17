@@ -1,13 +1,13 @@
 ---
-next_action: /skill:implement
-progress: planned
+next_action: /skill:review
+progress: executed
 ---
 
 # State
 
 **Phase:** 03 skill-polish-sweep
-**Status:** executing — wave 4 landed: 03-05 merged into `master` (waves 1–4 done)
-**Next:** wave 5 (03-04 → `progressEdd`); re-run `/skill:implement` to gate it
+**Status:** executed — 5 plans across 5 waves, merged into their targets in plan order; awaiting review
+**Next:** `/skill:review` in a fresh/cleared session
 
 <!--
 STATE.md is the router surface. The frontmatter (next_action, progress) is the
