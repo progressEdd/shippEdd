@@ -124,7 +124,7 @@ Phase <NN>-<slug> promoted
   roadmap   Phase <NN> appended (unchecked) · Next up <unchanged: <live phase> | now <NN>-<slug>>
   folder    phases/<NN>-<slug>/ scaffolded · CONTEXT seeded with <k> todo row(s)
   state     <untouched — <live phase> still holds focus | → /skill:define>
-Next: `/skill:define` — for <the first unchecked phase> (that's <NN>-<slug> itself, or the live phase it queued behind).
+Next: `/skill:define` — for <the first unchecked phase> (that's <NN>-<slug> itself, or the live phase it queued behind) — in a fresh session (clear this context first; everything durable is on disk).
 ```
 
 Then stop (rule 5) — unless mode B ran as mode A's handoff, in which case the define flow begins immediately instead of being recommended. todo's whole contribution to flow control is that last line.

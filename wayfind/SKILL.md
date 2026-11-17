@@ -98,7 +98,7 @@ Read `MAP.md` from this skill's folder — the hand-written flow map, and the on
 Then the single recommendation, as the last line:
 
 ```
-Type this next: /skill:<name>
+Type this next: /skill:<name> — in a fresh session (clear the current one; everything durable is on disk)
 ```
 
 It repeats the diagnosis's skill — one position, one command, no menu. Then stop (rule 4).
