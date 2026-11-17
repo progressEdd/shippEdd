@@ -1,6 +1,6 @@
 ## What it does
 
-`/skill:implement` turns approved plans into background work. It reads the phase's `NN-YY-PLAN.md` files, orders them by the `wave` frontmatter the planner precomputed, and dispatches one detached executor per plan — all plans of a wave in parallel, waves strictly one at a time. Each executor implements its plan's task blocks in a fresh context, runs every verify command, checks every acceptance criterion, and leaves two artifacts: an `NN-YY-SUMMARY.md` and a machine-readable commit spec (`runs/NN-YY.commits.tsv`). When a wave's markers have all flipped `.done`, the skill runs `replay-commits.sh`, which commits each plan's recorded specs sequentially in plan order and stamps the markers so nothing is ever committed twice. You can close the session between waves — markers and `committed` lines are the entire resume state.
+`/skill:implement` turns approved plans into background work. It reads the phase's `NN-YY-PLAN.md` files, orders them by the `wave` frontmatter the planner precomputed, and slices each plan into self-contained per-task prompts (`slice-tasks.sh`) — one detached executor per **task**, fed a single task block with its embedded code, never the whole plan. Tasks from different plans of a wave run in parallel (plans of a wave are file-disjoint); tasks within a plan run sequentially, in plan order. Each executor implements its block, runs the verify command, checks every acceptance criterion, records one line in the plan's commit spec (`runs/NN-YY.commits.tsv`), and flips its `NN-YY-TT` marker; the final task of a plan also runs the plan's verification checklist and writes `NN-YY-SUMMARY.md`. When every task of a wave is `.done`, the gate stamps the plan markers and runs `replay-commits.sh`, which commits each plan's recorded specs sequentially in plan order and stamps the markers so nothing is ever committed twice. You can close the session between visits — markers and `committed` lines are the entire resume state.
 
 ## When to reach for it
 
@@ -22,8 +22,11 @@ Each wave runs several executors in parallel against the same working tree. Conc
 **What if two plans touch the same file?**
 They shouldn't: the planner guarantees plans in the same wave are file-disjoint and puts same-file work in different waves via `depends_on`. If a plan set slips through that guarantee anyway, the safe move is to let the wave finish (executors won't corrupt each other — they just may overwrite each other), then re-plan the affected slice or hand-fix the collision before the next wave dispatches.
 
+**Why one executor per task instead of per plan?**
+A fresh context fed a single task block — with the plan's embedded code — outperforms one agent holding the whole plan: focused context, exact instructions, no cross-task bleed. Plans stay small (2–3 tasks), so the extra gate visits cost little, and `slice-tasks.sh` composes every prompt mechanically.
+
 **How do I check on a running wave?**
-`bash .agents/skills/shippEdd/implement/scripts/dispatch.sh --status` lists every run (state, PID alive/dead, log size); `tail <state>/runs/NN-YY.log` streams one run. Finishers flip their own markers — nothing needs babysitting.
+`bash .agents/skills/shippEdd/implement/scripts/dispatch.sh --status` lists every run (state, PID alive/dead, log size); `tail <state>/runs/NN-YY-TT.log` streams one task run. Finishers flip their own markers — nothing needs babysitting.
 
 **A marker still says `.running` but the PID is dead.**
 That run was aborted or crashed — aborted runs never flip their own markers. Re-running `/skill:implement` offers the cleanup: inspect the log, delete the stale marker, redispatch.
@@ -33,9 +36,10 @@ Per wave, at the gate: all markers `.done` → `replay-commits.sh` → commits i
 
 ## It's working if
 
-- Markers flip per plan: `.running` → `.done`, each stamped with `committed <sha>` after its wave's replay.
+- Task markers flip per task: `NN-YY-TT` `.running` → `.done`; once a plan's every task is done, the gate stamps the plan's `.done` marker and replay adds `committed <sha>`.
+- Each executor's context holds one task block and the files it names — never a whole plan; your session holds neither.
 - Commits appear in `git log` in plan order, one per recorded task spec — and re-running `replay-commits.sh` commits nothing.
-- Your session context stays empty of implementation detail — dispatch lines and marker states, never file contents.
+- Your session context stays empty of implementation detail — the slicer composes prompts, you see dispatch lines and marker states, never file contents.
 - Every `NN-YY-SUMMARY.md` lands with frontmatter filled and task commit specs matching its TSV.
 - Nothing runs git except the sequencer; nothing auto-runs `/skill:review`.
 
