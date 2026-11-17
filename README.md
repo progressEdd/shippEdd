@@ -30,6 +30,21 @@ git submodule update --init 01-dev-onboarding
 | `00-supporting-files/` | Supporting data files (e.g. sample env files) |
 | `01-dev-onboarding/` | Submodule: [dev-onboarding](https://github.com/progressEdd/dev-onboarding) |
 | `02-worktrees/` | Git worktrees for active experiments |
+| `.agents/` | Agent assets; skills subtree mirroring `master` (see [Agent Skills](#agent-skills-git-subtree)) |
+
+## Agent Skills (git subtree)
+
+The skill definitions from the `master` branch are embedded into `progressEdd` at `.agents/skills/shippEdd/` using `git subtree`, so they are available from a fresh clone.
+
+After committing changes to `master` (e.g. in `02-worktrees/master`), sync the embedded copy from the main repo root:
+
+```bash
+git subtree merge --prefix=.agents/skills/shippEdd master --squash
+```
+
+> Note: `git subtree pull` expects a remote-style `<repository> <ref>` argument pair and will fail with
+> `fatal: you must provide <repository> <ref>` when given just a branch name. For a local branch in
+> this repo, use `subtree merge` as shown above.
 
 ## Active Experiments
 
