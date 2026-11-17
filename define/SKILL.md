@@ -62,20 +62,16 @@ Report a two-line summary (phase target, toggles in effect), then scaffold.
 
 ## Step 2 — SCAFFOLD
 
-Create the phase folder and seed it by copying the templates — copy, don't generate:
+Create the phase folder and seed its one eager artifact — copy, don't generate:
 
 ```bash
 mkdir -p <state>/phases/<NN>-<slug>/
 cp <templates>/NN-CONTEXT.md     <state>/phases/<NN>-<slug>/<NN>-CONTEXT.md
-cp <templates>/NN-RESEARCH.md    <state>/phases/<NN>-<slug>/<NN>-RESEARCH.md
-cp <templates>/NN-YY-PLAN.md     <state>/phases/<NN>-<slug>/<NN>-YY-PLAN.md
-cp <templates>/NN-YY-SUMMARY.md  <state>/phases/<NN>-<slug>/<NN>-YY-SUMMARY.md
-cp <templates>/VERIFICATION.md   <state>/phases/<NN>-<slug>/VERIFICATION.md
 ```
 
 Template source: `.agents/skills/shippEdd/bootstrap/templates/` (repo-relative — the skill's own templates; there is no state-dir stash). If it is missing, stop and recommend rerunning `/skill:bootstrap` (it repairs the skill folder's templates without touching existing content).
 
-Replace every `NN` / `<NN-slug>` placeholder in the copied names and contents with the phase's number and slug. `YY` placeholders are kept: `NN-YY-PLAN.md` and `NN-YY-SUMMARY.md` are the on-deck templates the planner and the executors instantiate — a filename still containing `YY` is a template, never an artifact. Files that already exist in the phase folder are left untouched (repair, never overwrite).
+Replace every `NN` / `<NN-slug>` placeholder in the copied name and contents with the phase's number and slug. Nothing else is scaffolded — every other phase artifact is written on demand by the agent that produces it, straight from the same `<templates>/` source: `NN-RESEARCH.md` by the researcher (step 4), `NN-0N-PLAN.md` by the planner (step 6), `NN-0N-SUMMARY.md` by each executor (`/skill:implement`), `VERIFICATION.md` by the verifier (`/skill:review`). A file that already exists in the phase folder is left untouched (repair, never overwrite).
 
 Fill the CONTEXT header now: phase goal in one sentence (from ROADMAP's phase details, or leave for grilling to settle if blank) and today's date.
 
@@ -145,7 +141,7 @@ Free-text answers may reopen the frontier; recompute and keep going until a clea
 
 ## Step 4 — RESEARCH (conditional, background-first)
 
-Run this step iff `config.json` → `workflow.research` is enabled (absent key = enabled; absent file = enabled) **and** grilling left factual questions open in CONTEXT.md. If research is off, or the frontier resolved every fact, delete the scaffolded `<NN>-RESEARCH.md` — an unfilled template would falsely mark research as done — and skip to step 5.
+Run this step iff `config.json` → `workflow.research` is enabled (absent key = enabled; absent file = enabled) **and** grilling left factual questions open in CONTEXT.md. If research is off, or the frontier resolved every fact, skip to step 5 — there is no `<NN>-RESEARCH.md` to delete (nothing scaffolds one; the researcher creates the file on demand).
 
 Research always runs in an isolated context; your session never carries the research detail. One question picks the mode:
 
@@ -173,7 +169,7 @@ Inputs:
 - Codebase map, if present: <state>/codebase/*.md — read it before grepping the repo
 - Roadmap: <state>/ROADMAP.md — this phase's goal and requirements
 
-Artifact: write your findings to <state>/phases/<NN>-<slug>/<NN>-RESEARCH.md, replacing the template already in place, per your persona's MODE A contract.
+Artifact: write your findings to <state>/phases/<NN>-<slug>/<NN>-RESEARCH.md, creating it from the skill's template `.agents/skills/shippEdd/bootstrap/templates/NN-RESEARCH.md` (nothing scaffolds a copy in the phase dir), per your persona's MODE A contract.
 
 ## Completion contract
 1. Write the artifact named above, fully, per its template.
@@ -225,7 +221,7 @@ Plan phase <NN>-<slug> for the shippEdd workflow in this repo.
 Inputs — read them all before writing:
 - Phase goal: <one sentence, from CONTEXT.md / ROADMAP>
 - Phase dir: <state>/phases/<NN>-<slug>/ — <NN>-CONTEXT.md (locked decisions, constraints, UI spec) and <NN>-RESEARCH.md if present
-- Plan template: <state>/phases/<NN>-<slug>/<NN>-YY-PLAN.md — instantiate it as <NN>-01-PLAN.md, <NN>-02-PLAN.md, … one file per plan
+- Plan template: `.agents/skills/shippEdd/bootstrap/templates/NN-0N-PLAN.md` — the skill's own template (nothing scaffolds a copy in the phase dir); instantiate it as <state>/phases/<NN>-<slug>/<NN>-01-PLAN.md, <NN>-02-PLAN.md, … one file per plan
 - Roadmap: <state>/ROADMAP.md — this phase's requirements and success criteria
 - Repo context: <state>/codebase/*.md if present; AGENTS.md if present
 - Requirements: <REQ-IDs from ROADMAP's phase details, or "none recorded">
@@ -235,12 +231,12 @@ Rules: write plan files only — never STATE.md or ROADMAP.md. Follow your perso
 
 What comes back, and what to check:
 
-- One `<NN>-YY-PLAN.md` per coherent unit of work — vertical slices preferred (one feature cut through all its layers beats a horizontal layer-plan); 2–3 tasks per plan; multiple plans (`01-01`, `01-02`, …) with `wave` + `depends_on` + `target` computed across them (`target` = the branch the plan's executor forks from and merges back into; `master` unless the phase says otherwise).
+- One plan file (`<NN>-01-PLAN.md`, `<NN>-02-PLAN.md`, …) per coherent unit of work — vertical slices preferred (one feature cut through all its layers beats a horizontal layer-plan); 2–3 tasks per plan; multiple plans (`01-01`, `01-02`, …) with `wave` + `depends_on` + `target` computed across them (`target` = the branch the plan's executor forks from and merges back into; `master` unless the phase says otherwise).
 - Task blocks with concrete identifiers — exact files, actions, runnable verify commands. Vagueness goes back for a rewrite, not a patch from you.
 
 If the planner reports `## PLAN BLOCKED` (missing decisions, contradictory inputs), put each gap to the user in the question format, record answers in CONTEXT.md, and redispatch. Never edit plan substance yourself — edits go back to the planner.
 
-On success, remove the phase's leftover `<NN>-YY-PLAN.md` on-deck template (the real plans replace it; `<NN>-YY-SUMMARY.md` stays — the final task's executor instantiates it once per plan).
+On success, the phase folder holds only real artifacts — `NN-CONTEXT.md`, the plans just written, and `NN-RESEARCH.md` if research ran. No template cleanup: nothing scaffolded a copy.
 
 ## Step 7 — APPROVE
 
