@@ -1,12 +1,12 @@
 ---
-next_action: /skill:define
-progress: 0%
+next_action: /skill:review
+progress: executed
 ---
 
 # State
 
-**Phase:** <none yet — run /skill:define to create phase 01>
-**Status:** <one line, e.g. "setup complete — awaiting first phase">
+**Phase:** 01 multi-harness-persona-wiring
+**Status:** verified — PASSED, 5/5 requirements covered, zero gaps; awaiting ship
 
 <!--
 STATE.md is the router surface. The frontmatter (next_action, progress) is the
