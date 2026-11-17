@@ -1,48 +1,45 @@
 ## What it does
 
-`/skill:implement` turns approved plans into background work. It reads the phase's `NN-YY-PLAN.md` files, orders them by the `wave` frontmatter the planner precomputed, and slices each plan into self-contained per-task prompts (`slice-tasks.sh`) — one detached executor per **task**, fed a single task block with its embedded code, never the whole plan. Tasks from different plans of a wave run in parallel (plans of a wave are file-disjoint); tasks within a plan run sequentially, in plan order. Each executor implements its block, runs the verify command, checks every acceptance criterion, records one line in the plan's commit spec (`runs/NN-YY.commits.tsv`), and flips its `NN-YY-TT` marker; the final task of a plan also runs the plan's verification checklist and writes `NN-YY-SUMMARY.md`. When every task of a wave is `.done`, the gate stamps the plan markers and runs `replay-commits.sh`, which commits each plan's recorded specs sequentially in plan order and stamps the markers so nothing is ever committed twice. You can close the session between visits — markers and `committed` lines are the entire resume state.
+`/skill:implement` turns approved plans into background work. It reads the phase's `NN-YY-PLAN.md` files, orders them by the `wave` frontmatter the planner precomputed, and dispatches one detached executor per **plan** — each into its own agent worktree forked from the plan's `target` branch (fork base recorded at dispatch). Executors walk the plan's task sections in order, commit each task atomically inside their worktree, and write `NN-YY-SUMMARY.md` in full before returning. Dispatch state (prompt, log, markers, fork base) is transient under `$TMPDIR` — nothing per-run is written into the repo. When a wave lands, the gate merges every agent branch back into its target, serialized in plan order with fork-base validation (drift halts with a recovery handoff naming what is stranded), removes the worktrees, and makes one docs-side commit (summaries, STATE/ROADMAP sync). Plan state is derived from artifacts: a SUMMARY with `status: complete` means executed; the `merge(NN-YY):` commit on the target means landed. You can close the session between visits — artifacts and git are the entire resume state.
 
 ## When to reach for it
 
-- `/skill:define` just approved plans — `implement` is the command define ends by naming.
-- You want work running while you do something else — waves are detached by design; walk away and re-run `/skill:implement` whenever you want to gate a wave, replay its commits, and dispatch the next.
-- After a crash, reboot, or abandoned session — re-run it; markers say exactly what finished.
-- One plan failed mid-wave — re-run; the gate offers inspect / redispatch / skip per failed plan.
+- `/skill:define` just approved plans — implement is the command define ends by naming.
+- You want work running while you do something else — waves are detached by design; walk away and re-run `/skill:implement` to gate a wave, merge it back, and dispatch the next.
+- After a crash, reboot, or abandoned session — re-run it; artifacts and git log say exactly what finished. Missing `$TMPDIR` state is never a failure: the oracle derives from artifacts.
+- One plan failed or blocked mid-wave — re-run; the gate offers inspect / redispatch (`--force` reuses the worktree; prior commits are continued, not redone) / skip.
 
 ## Prerequisites
 
 - A shippEdd state dir (`/skill:bootstrap`) with a phase that has approved plans (`/skill:define`).
-- git identity configured (`user.name` / `user.email`) — the sequencer commits with it.
+- git identity configured (`user.name` / `user.email`) — executors and the gate commit with it.
+- Every plan's `target` branch checked out in some worktree with a clean tree at merge time (the merge runs in that checkout; `merge-back.sh` pre-checks and halts loudly otherwise).
 
 ## Common questions
 
-**Why don't executors commit?**
-Each wave runs several executors in parallel against the same working tree. Concurrent `git add`/`git commit` would race on git's index lock, so executors are forbidden from git entirely. Each records what *should* be committed — message plus paths, one line per task — and `replay-commits.sh` replays those specs sequentially after the wave lands. Deterministic commits, zero races.
+**Why do executors commit now?**
+Each executor works in its own worktree — no shared index to race on. Per-task commits make the work atomic and resumable: a re-dispatched plan verifies and continues prior commits (idempotent by law), and the merge-back has a real branch to merge.
 
-**What if two plans touch the same file?**
-They shouldn't: the planner guarantees plans in the same wave are file-disjoint and puts same-file work in different waves via `depends_on`. If a plan set slips through that guarantee anyway, the safe move is to let the wave finish (executors won't corrupt each other — they just may overwrite each other), then re-plan the affected slice or hand-fix the collision before the next wave dispatches.
+**Who merges?**
+The orchestrator gate, never the executor. After a wave lands, `merge-back.sh` merges each agent branch into its target with `--no-ff` (one merge bubble per plan), validating the recorded fork base first — if the target or the agent branch moved since dispatch, that merge halts with a handoff naming the plan, branch, worktree, and SHAs. Docs-side commits (summaries, STATE.md, ROADMAP plan ticks) land only after all merges.
 
-**Why one executor per task instead of per plan?**
-A fresh context fed a single task block — with the plan's embedded code — outperforms one agent holding the whole plan: focused context, exact instructions, no cross-task bleed. Plans stay small (2–3 tasks), so the extra gate visits cost little, and `slice-tasks.sh` composes every prompt mechanically.
+**What if two plans of a wave target the same branch?**
+Each still runs isolated in its own worktree, but their merges would collide — so the wave is demoted to sequential dispatch with a visible warning, flagged as a planning defect. The planner puts same-target plans in different waves via `depends_on`.
 
 **How do I check on a running wave?**
-`bash .agents/skills/shippEdd/implement/scripts/dispatch.sh --status` lists every run (state, PID alive/dead, log size); `tail <state>/runs/NN-YY-TT.log` streams one task run. Finishers flip their own markers — nothing needs babysitting.
+The dispatch line prints the run dir (`${TMPDIR:-/tmp}/shippEdd/<phase>/<plan>/`): `tail` the log there, or run `dispatch.sh --status --state-dir` against that dir. Finishers write their SUMMARY and flip their own marker — nothing needs babysitting.
 
-**A marker still says `.running` but the PID is dead.**
-That run was aborted or crashed — aborted runs never flip their own markers. Re-running `/skill:implement` offers the cleanup: inspect the log, delete the stale marker, redispatch.
-
-**When do the commits actually appear?**
-Per wave, at the gate: all markers `.done` → `replay-commits.sh` → commits in git log, in plan order. Between waves the working tree carries uncommitted changes on purpose; that's the design, not an accident.
+**When do the commits appear?**
+Continuously inside each executor's worktree; on the target branch at the gate, as serialized `--no-ff` merges in plan order. The planning-repo side (summaries, STATE/ROADMAP) commits once per wave, after the merges.
 
 ## It's working if
 
-- Task markers flip per task: `NN-YY-TT` `.running` → `.done`; once a plan's every task is done, the gate stamps the plan's `.done` marker and replay adds `committed <sha>`.
-- Each executor's context holds one task block and the files it names — never a whole plan; your session holds neither.
-- Commits appear in `git log` in plan order, one per recorded task spec — and re-running `replay-commits.sh` commits nothing.
-- Your session context stays empty of implementation detail — the slicer composes prompts, you see dispatch lines and marker states, never file contents.
-- Every `NN-YY-SUMMARY.md` lands with frontmatter filled and task commit specs matching its TSV.
-- Nothing runs git except the sequencer; nothing auto-runs `/skill:review`.
+- Dispatching a plan creates nothing under `.planning/` — the run dir lives under `$TMPDIR` and its path is printed at dispatch.
+- Each executed plan leaves exactly one durable artifact: `NN-YY-SUMMARY.md` with `status` / `duration` / `key-files` / `requirements-completed` / `key-decisions` / `deviations` frontmatter.
+- `git log <target> --merges` shows one `merge(NN-YY):` bubble per landed plan, in plan order; the agent branches and worktrees are gone.
+- Re-running `/skill:implement` at any moment is safe: landed plans are skipped, in-flight ones reported, interrupted ones surfaced with recovery choices.
+- Nothing runs git on the target branches except the gate; executors never merge; nothing auto-runs `/skill:review`.
 
 ## Where it fits
 
-Role: the execution step of the phase loop — the only skill that dispatches implementation work. Neighbours: `/skill:define` before it, which produces the approved plans (and precomputes the waves); `/skill:review` after it, which verifies coverage against requirements and decisions, then ships. `/skill:todo` takes stray ideas mid-execution so they don't derail a running wave.
+Role: the execution step of the phase loop — the only skill that dispatches implementation work. Neighbours: `/skill:define` before it, which produces the approved plans (and precomputes the waves and targets); `/skill:review` after it, which verifies coverage against requirements and decisions, then ships. `/skill:todo` takes stray ideas mid-execution so they don't derail a running wave.

@@ -8,14 +8,14 @@ disable-model-invocation: true
 
 You are the intake valve of the phase loop. Work is flowing — a plan is being grilled, a wave is running — and something stray surfaces: a bug spotted, an idea worth keeping, a "we should really…", often with research and half-made decisions already sitting in the conversation. Your job is to make all of it durable in one file and get out of the way. You never dispatch subagents, never touch a live phase, and never ask a battery of questions: intake that interrupts is intake that stops happening.
 
-`<state>` is the workflow state dir resolved in step 0; all other paths are relative to it or to the repo root. This skill is self-contained: its script (`scripts/state-dir.sh`) lives in this folder; its templates come from the state dir's own stash.
+`<state>` is the workflow state dir resolved in step 0; all other paths are relative to it or to the repo root. This skill is self-contained: its script (`scripts/state-dir.sh`) lives in this folder; its templates come from the skill's own `bootstrap/templates/`.
 
 ## Ground rules
 
 1. **Intake never blocks** — mode A asks at most **one** clarifying question, and only when the note names nothing actionable. Slug, area, and severity are always inferred or defaulted silently — never questions. The step-5 phase-plan offer is the one standing exception, and it fires only after the todo is safely on disk — a question that cannot lose the capture cannot block it. A parked idea is not worth an interrogation.
 2. **Promote never edits an existing phase** — it appends exactly one new phase: new ROADMAP rows, one new folder, todos moved out of pending. Live phases, their artifacts, and ROADMAP history are not touched; STATE.md is updated only when it points at nothing.
 3. **Plain files are the state** — a todo's presence in `todos/pending/` is the truth; its move to `todos/done/` is the record. No session memory anywhere: every mode re-reads the dir.
-4. **Copy, don't generate** — todos come from the PENDING-TODO template, phase scaffolds from the `_templates/` stash, with placeholders filled. Capture never invents structure, and never invents content: the Problem/Solution/Research/Decisions sections record only what the conversation already established — an absent section keeps its placeholder.
+4. **Copy, don't generate** — todos come from the PENDING-TODO template, phase scaffolds from the skill's `bootstrap/templates/`, with placeholders filled. Capture never invents structure, and never invents content: the Problem/Solution/Research/Decisions sections record only what the conversation already established — an absent section keeps its placeholder.
 5. **Recommend and stop** — the skill ends by naming the next command. Never run it yourself. One exception: an explicit **yes** to mode A's phase-plan offer hands off to promote + `/skill:define` — that yes is the invitation.
 
 ## Step 0 — resolve the state dir
@@ -52,7 +52,7 @@ Zero ceremony: infer everything you can from the note and the conversation aroun
 - **Area** — from named paths, modules, or vocabulary in the note (`auth`, `ui`, `build`, `docs`, …). Default `general`.
 - **Severity** — `high` when the words say pain (broken, crash, fails, urgent, security, data loss); `medium` for should-haves; default `low`. A parked idea is low until it says otherwise.
 - **Files** — every path the note or its conversation names, listed verbatim with an optional `:line` or `:start-end` suffix (`api/routers/llm.py:231-234`); they land in the `files` list, the **last** key of the frontmatter. No path named → `files: none`.
-- **NN** — next todo number: one more than the highest `NN-*` filename across `todos/pending/` **and** `todos/done/` (both — promoted todos move to done/ and keep their numbers forever, same law as archived phases), zero-padded to two digits. Start at 01 when both are empty.
+- **NN** — next todo number: one more than the highest `NN-*` filename across `todos/pending/` **and** `todos/done/` (both — promoted todos move to done/ and keep their numbers forever, same law as shipped phases), zero-padded to two digits. Start at 01 when both are empty.
 
 **3. Write the todo.** Copy the template — source `<state>/todos/PENDING-TODO.md`, falling back to `.agents/skills/shippEdd/bootstrap/templates/todos/PENDING-TODO.md`; if both are missing, stop and recommend rerunning `/skill:bootstrap` (it repairs the skeleton without touching existing content). Write it as `<state>/todos/pending/<NN>-<slug>.md`. Fill the frontmatter: `name` = slug, `captured` = today's date, `what` = the note (one line), `severity` = the inferred severity, `context` = one line a future session could act on without re-deriving anything, and `files` **last** — one list item per named path with its optional `:line`/`:start-end` suffix, `files: none` when no path is named. Then fill the four body sections **from the conversation that produced the note — never invented**: **Problem** (why it matters / what's broken or missing), **Solution** (the fix as currently imagined), **Research** (findings already in hand — paths, commands, verified facts, source links; banked research is why this section exists), **Decisions** (choices already settled that a future session must not reopen, one per line). A section with nothing behind it keeps its template placeholder (`not stated` / `none`) — an honest empty beats a fabricated full. Drop the template's HTML comment.
 
@@ -105,16 +105,16 @@ The recommendation is the high-severity subset; if no todo is high, recommend al
 
 **4. Execute the promote — one breath, in order:**
 
-1. **NN** — one more than the highest `NN-*` phase number across `phases/` (ignoring `_templates/`) **and** `phases/_archive/`. Archived phases reserve their numbers forever, so a repo that shipped 01 and is mid-02 gets 03.
+1. **NN** — one more than the highest `NN-*` phase number across `phases/` (shipped phases stay flat and keep their numbers forever, so a repo that shipped 01 and is mid-02 gets 03).
 2. **ROADMAP** — append, never edit history:
    - `## Phases`: `- [ ] **Phase <NN>: <slug>** — <goal>`
    - `## Phase details`: a `### Phase <NN>: <slug>` block — Goal (from step 3), Depends on: `nothing` (unless the todos say otherwise), Requirements: `none recorded — promoted from todos`, success criteria = one per selected todo, and `Plans:` left as `- [ ] (filled by /skill:define)`
    - `## Progress`: a row `| <NN> `<slug>` | 0/0 | Not started | — |`
    - `## Next up`: point it at the new phase **only if no other unchecked phase precedes it** — a live phase keeps the focus (rule 2). If the roadmap was complete, the new phase is next up by right.
-3. **Scaffold** `<state>/phases/<NN>-<slug>/` from the stash — same rules `define` uses: copy from `<state>/phases/_templates/`, falling back to `.agents/skills/shippEdd/bootstrap/templates/`; both missing → stop, recommend `/skill:bootstrap`. Copy all five files, renaming `NN` → the real number in name and contents (`YY` placeholders stay — they are the on-deck templates `define`/`implement` instantiate).
+3. **Scaffold** `<state>/phases/<NN>-<slug>/` — same rules `define` uses: copy from `.agents/skills/shippEdd/bootstrap/templates/` (the skill's own templates); missing → stop, recommend `/skill:bootstrap`. Copy all five files, renaming `NN` → the real number in name and contents (`YY` placeholders stay — they are the on-deck templates `define`/`implement` instantiate).
 4. **Seed `<NN>-CONTEXT.md`** — header: goal from step 3, today's date, `via /skill:todo promote` (the todos were banked mid-work, not grilled — say so). **Decisions table**: one row per selected todo, pre-settled — `| <n> | <todo title> | <todo What> | promoted todo <id> (<severity>), captured <date> |`. Constraints: `none — promoted todos`. Open questions: `none — frontier starts clear`. The phase enters planning with its history already decided. If a promoted todo carries a **Research** section beyond `none`, preserve it verbatim under a `## Banked research` heading at the bottom of its CONTEXT block — pre-decided input define reads, not new questions.
 5. **Move the consumed todos** — `mkdir -p <state>/todos/done/` and `mv` each selected `todos/pending/<id>-<slug>.md` there, filename unchanged. Presence in pending/ was the truth; done/ is the record.
-6. **STATE.md — only if it points at nothing** (rule 2): i.e. its body names no live phase (`<none yet…>`, or a phase that is archived or absent). Then set frontmatter `next_action: /skill:define`, `progress: 0%`, body: the new phase and `promoted from <k> todos — awaiting planning`. If STATE.md names a live phase, leave it byte-for-byte untouched.
+6. **STATE.md — only if it points at nothing** (rule 2): i.e. its body names no live phase (`<none yet…>`, or a phase that is shipped or absent). Then set frontmatter `next_action: /skill:define`, `progress: 0%`, body: the new phase and `promoted from <k> todos — awaiting planning`. If STATE.md names a live phase, leave it byte-for-byte untouched.
 
 **5. Promote receipt:**
 

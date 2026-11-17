@@ -1,17 +1,17 @@
 ---
-provides:
-  - <what was built/delivered>
+status: complete  # complete | blocked — a blocked run still writes this record in full
+duration: <Xmin>
 key-files:
   created:
-    - <important file created>
+    - <repo-relative path created>
   modified:
-    - <important file modified>
+    - <repo-relative path modified>
+requirements-completed:
+  - <REQ-ID>
 key-decisions:
   - "<decision>"
-actuals:
-  duration: <Xmin>
-  tasks: <count>
-  completed: <YYYY-MM-DD>
+deviations:
+  - none  # or one line per deviation: what differed, why, which files
 ---
 
 # Plan <NN-YY> Summary: <title>
@@ -25,8 +25,8 @@ actuals:
 
 ## Task commits
 
-1. **<task name>** — `<hash>` (<feat|fix|test|refactor>)
-2. **<task name>** — `<hash>` (<type>)
+1. **<task name>** — `<short-sha>` <type>(<NN-YY>): <subject>
+2. **<task name>** — `<short-sha>` <type>(<NN-YY>): <subject>
 
 ## Files created/modified
 
