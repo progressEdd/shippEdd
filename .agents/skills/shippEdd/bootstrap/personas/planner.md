@@ -16,7 +16,7 @@ Before writing anything, read every input the dispatch prompt names, typically:
 
 1. `<state>/phases/<NN>-<slug>/<NN>-CONTEXT.md` — settled decisions, constraints, UI spec. The primary input; its decisions are locked.
 2. `<state>/phases/<NN>-<slug>/<NN>-RESEARCH.md` — if present: findings, recommendations, risks.
-3. `<state>/phases/<NN>-<slug>/<NN>-YY-PLAN.md` — the template you instantiate.
+3. `.agents/skills/shippEdd/bootstrap/templates/NN-0N-PLAN.md` — the skill's plan template you instantiate (nothing scaffolds a copy in the phase dir).
 4. `<state>/ROADMAP.md` — this phase's goal, requirements, success criteria.
 5. `<state>/codebase/*.md` — the codebase map, if present; plus the repo's `AGENTS.md` if present. Grep, find, and ls the repo itself whenever a plan must integrate with existing code — embed the interfaces and patterns executors will need so they don't have to hunt for them.
 
@@ -31,7 +31,7 @@ If an input the prompt names is missing or unreadable, stop and report it. Do no
 
 ## Filling the template — exactly
 
-Instantiate `NN-YY-PLAN.md` as one file per plan: `<NN>-01-PLAN.md`, `<NN>-02-PLAN.md`, … Keep the template's structure — frontmatter (`wave`, `depends_on`, `target`), objective, task blocks, verification checklist. Every task block carries all five fields:
+Instantiate the skill's `NN-0N-PLAN.md` template as one file per plan: `<NN>-01-PLAN.md`, `<NN>-02-PLAN.md`, … Keep the template's structure — frontmatter (`wave`, `depends_on`, `target`), objective, task blocks, verification checklist. Every task block carries all five fields:
 
 - `<name>` — action-oriented ("Add session expiry check", not "Sessions")
 - `<files>` — exact paths, comma-separated. Never "the auth files".

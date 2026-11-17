@@ -94,12 +94,11 @@ The skeleton copies from `templates/` into the state dir:
 | `REQUIREMENTS.md` | `<state>/REQUIREMENTS.md` | — |
 | `config.json` | `<state>/config.json` | toggle values exactly as chosen in step 4 |
 | `README.md` | `<state>/README.md` | documents every file + the absent=enabled convention |
-| `todos/PENDING-TODO.md` | `<state>/todos/PENDING-TODO.md` | also create empty `<state>/todos/pending/` |
 | `codebase/stack.md` … `testing.md` | `<state>/codebase/` | four stub probes |
 
-Phase templates (`NN-CONTEXT.md`, `NN-RESEARCH.md`, `NN-YY-PLAN.md`, `NN-YY-SUMMARY.md`, `VERIFICATION.md`) are not scaffolded into the state dir — `define` and `/skill:todo` copy them straight from this skill's `templates/` folder (repo-relative in the vendored install), with the same repair semantics.
+Repair semantics: a destination file that already exists is **left untouched**; only missing files are created. The skeleton also creates empty `<state>/todos/pending/` — the capture inbox `/skill:todo` fills.
 
-Repair semantics: a destination file that already exists is **left untouched**; only missing files are created. `todos/PENDING-TODO.md` is the note template `/skill:todo` copies to `todos/pending/<NN-slug>.md`.
+Phase templates (`NN-CONTEXT.md`, `NN-RESEARCH.md`, `NN-0N-PLAN.md`, `NN-0N-SUMMARY.md`, `VERIFICATION.md`) and the todo note template (`todos/PENDING-TODO.md`) are never scaffolded into the state dir — they live only in this skill's `templates/` folder (repo-relative in the vendored install). Phase scaffolding is lazy: `define` and `/skill:todo` copy just `NN-CONTEXT.md` when a phase is minted, and every other artifact is created on demand by its producing agent — `NN-RESEARCH.md` by the researcher, `NN-0N-PLAN.md` by the planner, `NN-0N-SUMMARY.md` by each executor, `VERIFICATION.md` by the verifier — straight from that folder when it is written.
 
 ## Step 3b — PERSONAS (repo wiring, written after confirmation)
 
@@ -192,7 +191,7 @@ If mirror: add `"github": { "mirror_issues": true }` to `<state>/config.json`. A
   If the researcher persona is still not usable after step 3b (the user kept a differing existing file), say so and offer to fill the stubs inline instead.
 - **Either way**, end with (and do not run it yourself):
 
-  > Setup complete. Next: `/skill:define` to grill out your first phase.
+  > Setup complete. Next: `/skill:define` to grill out your first phase — in a fresh session (clear this context first; everything durable is on disk).
 
 ## Confirmation gate
 

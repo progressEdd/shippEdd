@@ -45,7 +45,7 @@ case "$plan" in /*) ;; *) plan="$PWD/$plan" ;; esac
 git rev-parse --verify --quiet "refs/heads/$target" >/dev/null \
   || { echo "no such target branch: $target" >&2; exit 1; }
 [ -f "$persona" ] || { echo "no executor persona at: $persona" >&2; exit 1; }
-[ -n "$summary_tpl" ] || summary_tpl="$skill_tpl/NN-YY-SUMMARY.md"
+[ -n "$summary_tpl" ] || summary_tpl="$skill_tpl/NN-0N-SUMMARY.md"
 case "$summary_tpl" in /*) ;; *) summary_tpl="$PWD/$summary_tpl" ;; esac
 [ -f "$summary_tpl" ] || { echo "no such summary template: $summary_tpl" >&2; exit 1; }
 
