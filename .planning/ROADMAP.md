@@ -6,11 +6,11 @@
 
 ## Next up
 
-**⏭️ 01-multi-harness-persona-wiring** — bootstrap wires its four personas into any of eight harnesses via a new `scripts/wire-agents.sh`. Start it with `/skill:define`.
+**none — roadmap complete**
 
 ## Phases
 
-- [ ] **Phase 01: multi-harness-persona-wiring** — bootstrap works on eight harnesses, not just pi
+- [x] **Phase 01: multi-harness-persona-wiring** — bootstrap works on eight harnesses, not just pi
 - [ ] **Phase 02: <slug>** — <one-line description>
 - [ ] **Phase 03: <slug>** — <one-line description>
 
@@ -28,8 +28,8 @@
   4. The confirmation gate shows `wire   personas → <dir> (4 agents)`
 
 Plans:
-- [ ] 01-01: wire-agents.sh — the multi-harness wiring matrix (all modes, repair semantics, dry-run; proven via temp-dir runs)
-- [ ] 01-02: bootstrap SKILL.md harness question + gate/README sync (step 1 probe, step 3b flow, receipts)
+- [x] 01-01: wire-agents.sh — the multi-harness wiring matrix (all modes, repair semantics, dry-run; proven via temp-dir runs)
+- [x] 01-02: bootstrap SKILL.md harness question + gate/README sync (step 1 probe, step 3b flow, receipts)
 
 ### Phase 02: <slug>
 
@@ -46,7 +46,7 @@ Plans:
 
 | Phase | Plans complete | Status | Completed |
 |-------|----------------|--------|-----------|
-| 01 `multi-harness-persona-wiring` | 0/2 | Planned | — |
+| 01 `multi-harness-persona-wiring` | 2/2 | Shipped | 2026-11-17 |
 | 02 `<slug>` | 0/1 | Not started | — |
 
 <!--
