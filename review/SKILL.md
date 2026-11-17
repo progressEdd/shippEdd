@@ -66,10 +66,10 @@ Report a two-line summary (phase, plans done+committed, prior verification if an
 Compose `<state>/runs/<id>.prompt.md` — a fully self-contained prompt (the detached run loads nothing else):
 
 ```
-Read <repo-root>/.pi/agents/verifier.md and operate as that agent for the task below.
+Read .pi/agents/verifier.md and operate as that agent for the task below.
 
 ## Task
-You are verifying phase <NN>-<slug> of the shippEdd workflow in this repo (repo root: <absolute path>).
+You are verifying phase <NN>-<slug> of the shippEdd workflow in this repo (the repo root is this run's working directory).
 
 Inputs:
 - Phase goal: <one sentence, from ROADMAP's phase details>
@@ -87,7 +87,7 @@ Artifact: write <state>/phases/<NN>-<slug>/VERIFICATION.md, replacing what's the
 Your final message must end with the sentinel: ## VERIFICATION PASSED (or ## VERIFICATION FAILED / ## VERIFICATION BLOCKED)
 ```
 
-Substitute the real repo root, state dir, phase, REQ-IDs, and run id into every path. The completion contract is canonical — copied verbatim from the define skill's, with only the run id, the `mv` paths, and the sentinel names substituted. If `.pi/agents/verifier.md` is not installed, stop and say so — the framework's personas travel in `.pi/agents/`.
+Substitute the state dir, phase, REQ-IDs, and run id into every path — keep every path repo-relative (no absolute paths; the detached run starts at the repo root, so relative paths resolve and nothing machine-specific lands in the runs folder). The completion contract is canonical — copied verbatim from the define skill's, with only the run id, the `mv` paths, and the sentinel names substituted. If `.pi/agents/verifier.md` is not installed, stop and say so — the framework's personas travel in `.pi/agents/`.
 
 Dispatch with `scripts/dispatch.sh <id> <state>/runs/<id>.prompt.md`, passing `--model <id>` **only if** `.pi/planning.json` has a `models.verifier` entry naming a concrete model id — an absent key (or a tier word like "strong", which is not a model id) means inherit the session default.
 
@@ -133,7 +133,7 @@ Find the newest verify run for the phase (highest id suffix) and gate on its mar
 1. **Create fix plans** — dispatch the **planner** subagent (agent name `planner`, agentScope both) in the foreground with a self-contained prompt:
 
    ```
-   Fix-plan phase <NN>-<slug> for the shippEdd workflow in this repo (repo root: <absolute path>).
+   Fix-plan phase <NN>-<slug> for the shippEdd workflow in this repo (the repo root is the subagent's working directory).
 
    Inputs — read them all before writing:
    - Gaps: <state>/phases/<NN>-<slug>/VERIFICATION.md — the `## Gaps found` section is your spec; every gap must be covered by exactly one fix plan (gaps sharing a root cause may share one)
