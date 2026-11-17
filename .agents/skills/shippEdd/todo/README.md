@@ -1,6 +1,6 @@
 ## What it does
 
-`/skill:todo` is the loop's intake valve. Mid-grill, mid-wave, mid-anything, a stray thought surfaces — a bug you just saw, an idea for later, a "we should really fix…". You give todo the note in your own words; it infers a slug, an area, and a severity from them (asking at most one clarifying question, only when the note names nothing actionable), writes `todos/pending/NN-slug.md` from the todo template, and answers in a single line: `captured → todos/pending/03-logout-loop.md (auth, high)`. That's the whole interaction. The second half is graduation: `--promote` lists the parked todos, you multi-select (high severity is the recommendation), and todo creates a real phase in one breath — appended to the roadmap, folder scaffolded from the template stash, CONTEXT.md seeded with the consumed todos as pre-settled decisions, todos moved to `todos/done/`, and STATE.md updated only if nothing live holds the focus. Then it points at `/skill:define` and stops.
+`/skill:todo` is the loop's intake valve. Mid-grill, mid-wave, mid-anything, a stray thought surfaces — a bug you just saw, an idea for later, a "we should really fix…". You give todo the note in your own words; it infers a slug, an area, and a severity from them (asking at most one clarifying question, only when the note names nothing actionable), writes `todos/pending/NN-slug.md` from the todo template, and answers in a single line: `captured → todos/pending/03-logout-loop.md (auth, high)`. The file is richer than the reply: YAML frontmatter (`name`, `captured`, `what`, `severity`, `context`, and a `files` list **last** — touched paths with optional `:line`/`:start-end` suffixes) over four sections — Problem, Solution, Research, Decisions — filled from the conversation, so findings and half-made decisions already on the table get banked, not re-derived later. Every capture then closes with one offer — *start planning this as a phase now?* — and only a yes goes further: that todo alone is promoted and `/skill:define` takes over. The second half is graduation: `--promote` lists the parked todos, you multi-select (high severity is the recommendation), and todo creates a real phase in one breath — appended to the roadmap, folder scaffolded from the template stash, CONTEXT.md seeded with the consumed todos as pre-settled decisions (Research preserved as banked research), todos moved to `todos/done/`, and STATE.md updated only if nothing live holds the focus. Then it points at `/skill:define` and stops.
 
 ## When to reach for it
 
@@ -19,17 +19,21 @@ Two things, both durable: the files move from `todos/pending/` to `todos/done/` 
 **Why doesn't it ask me to confirm the inferred slug or severity?**
 Because intake that interrupts is intake that stops happening. The reply line shows the file, area, and severity it chose — wrong inference is a one-edit markdown file, and promote shows the phase slug in its receipt before anything downstream consumes it. Cheap to correct, expensive to have asked.
 
+**What goes in the `files` list?**
+Every path the note or its conversation names, one item each, with an optional `:line` or `:start-end` suffix (`api/chat_agent.py:106-117`) — the last key of the frontmatter. No path named → `files: none`. It's the todo's pointer for future-you: the paths to open first.
+
 **Can promote disturb the phase I'm in the middle of?**
 No. Promote appends exactly one new phase: new roadmap rows, one new folder, todos moved. Live phases, their artifacts, and roadmap history are untouched, and STATE.md is only rewritten when it points at nothing — a live phase keeps the focus, and the receipt says so in plain words.
 
 ## It's working if
 
-- A capture costs you one line in, one line out — `captured → todos/pending/NN-slug.md (area, severity)` — and no questions.
-- The first capture in a repo mentions `--promote` once; later captures never do.
+- A capture costs you one line in, one line out — `captured → todos/pending/NN-slug.md (area, severity)` — and at most one clarifying question; the only thing after the receipt is the phase-plan offer, which fires after the todo is safely on disk.
+- Every capture closes with the same offer — not yet (default) or promote-and-plan now — and a no costs nothing.
+- Research and decisions already in the conversation land in the todo's sections verbatim; nothing is invented to fill them.
 - Promote asks exactly one question (the multi-select) and then does everything — roadmap, folder, seeded CONTEXT, moved todos — before you see another prompt.
 - A promoted phase gets a number past every archived phase (ship 01, live 02 → new is 03), its CONTEXT.md opens with the todos as settled decision rows, and `todos/pending/` no longer contains them.
 - STATE.md still names the live phase after a promote that queued behind it.
-- Nothing ever runs by itself — todo's last line is a recommendation, not an action.
+- Nothing ever runs by itself — todo's last line is a recommendation, not an action; the one exception is an explicit yes to the phase-plan offer.
 
 ## Where it fits
 
