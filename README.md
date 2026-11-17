@@ -22,6 +22,7 @@ git subtree push --prefix=.agents/skills/shippEdd https://github.com/progressEdd
 ```
 
 > Tip: `git subtree` commands accept any prefix path — `.agents/skills/shippEdd` just matches the
-> convention used by this repo's agent harness. This repo itself embeds `master` at that path on its
-> `progressEdd` branch, synced with:
+> convention used by this repo's agent harness. To see this subtree setup in action, look at this
+> repo's [`progressEdd`](https://github.com/progressEdd/shippEdd/tree/progressEdd/.agents/skills/shippEdd)
+> branch, which embeds `master` at that path and keeps it synced with:
 > `git subtree merge --prefix=.agents/skills/shippEdd master --squash`.
