@@ -17,6 +17,7 @@ set -euo pipefail
 here="$(cd "$(dirname "$0")" && pwd)"
 root="$(git rev-parse --show-toplevel 2>/dev/null || pwd)"
 runs="$root/$("$here/state-dir.sh")/runs"
+runs_disp="${runs#"$root"/}"   # repo-relative for every printed path, e.g. .planning/runs
 mkdir -p "$runs"
 
 if [ "${1:-}" = "--status" ]; then
@@ -26,8 +27,8 @@ if [ "${1:-}" = "--status" ]; then
     pid="$(head -n1 "$marker" 2>/dev/null | grep -oE '[0-9]+' || true)"
     alive=dead
     if [ -n "$pid" ] && kill -0 "$pid" 2>/dev/null; then alive=alive; fi
-    size="$(wc -c < "$runs/$id.log" 2>/dev/null | tr -d '[:space:]')" || size=0
-    printf '%s  %s  pid %s %s  log %s bytes\n' "$id" "${marker##*.}" "${pid:-?}" "$alive" "${size:-0}"
+    size="$(wc -c < "${runs}/$id.log" 2>/dev/null | tr -d '[:space:]')" || size=0
+    printf '%s  %s  pid %s %s  log %s bytes  %s\n' "$id" "${marker##*.}" "${pid:-?}" "$alive" "${size:-0}" "$runs_disp/$id.log"
   done
   exit 0
 fi
@@ -53,7 +54,7 @@ fi
 if [ "$force" -eq 1 ]; then rm -f "$runs/$id.running" "$runs/$id.done" "$runs/$id.failed"; fi
 
 cd "$root"
-nohup pi --print ${model[@]+"${model[@]}"} < "$prompt" > "$runs/$id.log" 2>&1 &
+nohup pi --print ${model[@]+"${model[@]}"} < "$prompt" > "${runs}/$id.log" 2>&1 &
 pid=$!
 printf '%s\n' "$pid" > "$runs/$id.running"
-printf 'dispatched %s (PID %s) → %s\n' "$id" "$pid" "$runs/$id.log"
+printf 'dispatched %s (PID %s) → %s\n' "$id" "$pid" "$runs_disp/$id.log"

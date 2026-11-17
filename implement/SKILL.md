@@ -43,7 +43,7 @@ Read (never ask for) the state:
 
 - `<state>/STATE.md` — the loop position; the body names the current phase
 - `<state>/ROADMAP.md` — this phase's entry and its `Plans:` list (plan IDs + one-liners)
-- `<state>/phases/<NN>-<slug>/` — the phase folder: enumerate the `NN-YY-PLAN.md` files. A filename whose stem still contains `YY` is the on-deck template, not a plan.
+- `<state>/phases/<NN>-<slug>/` — the phase folder: enumerate the `NN-*-PLAN.md` files. Every one is a real plan — placeholder copies are never scaffolded into a phase dir.
 
 Read each plan's frontmatter `wave`, `depends_on`, and `target` as written (rule 3).
 
@@ -90,7 +90,7 @@ wave 1: 02-01, 02-02 · wave 2: 02-03 (needs 02-01, 02-02)
 
 For each plan `NN-YY` of the current wave (parallel unless demoted by the overlap check):
 
-1. Resolve the **summary template**: the phase's on-deck `<NN>-YY-SUMMARY.md` (left there by `define`); if missing, this skill's sibling `bootstrap/templates/NN-YY-SUMMARY.md`. Both absent → stop and recommend rerunning `/skill:bootstrap` (it repairs the skeleton without touching existing content).
+1. Resolve the **summary template**: this skill's sibling `bootstrap/templates/NN-0N-SUMMARY.md` — the skill's own templates; there is no phase copy (nothing scaffolds one, and each executor instantiates the skill's template at write time). If it is missing, stop and recommend rerunning `/skill:bootstrap` (it repairs the skill folder's templates without touching existing content).
 2. Dispatch:
 
    ```
@@ -154,6 +154,6 @@ Every plan is landed or skipped. Update `<state>/STATE.md`:
 
 Then hand off:
 
-> Phase `<NN>-<slug>` executed — <N> plans across <M> waves, merged into their targets in plan order. Next: `/skill:review` to verify coverage and ship.
+> Phase `<NN>-<slug>` executed — <N> plans across <M> waves, merged into their targets in plan order. Next: `/skill:review` to verify coverage and ship — in a fresh session (clear this context first; everything durable is on disk).
 
 And stop (rule 6).

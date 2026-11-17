@@ -38,11 +38,11 @@ Gather, in order — everything is a fact off the disk:
 
 **Current phase** (same rule `define` uses): the `## Next up` phase if it is unchecked and its folder is live; else the first unchecked phase with a live folder; else none.
 
-**Artifact checklist** for the current phase — each entry is `✓` iff the file exists *and* is not still the raw template (no `<…>` placeholders left in it; `NN-YY-PLAN`/`NN-YY-SUMMARY` count only once instantiated — a filename still containing `YY` is a template, never an artifact):
+**Artifact checklist** for the current phase — each entry is `✓` iff the file exists *and* is not still a raw template (no `<…>` placeholders left in it). Scaffolding is lazy — artifacts are written on demand by their producing agents, never pre-copied — so a file present is filled; only `CONTEXT` can legitimately sit half-raw (`define` scaffolds it ahead of grilling), and a legacy phase minted before lazy scaffolding may still carry raw copies:
 
 - `CONTEXT` → `<NN>-CONTEXT.md`
 - `RESEARCH` → `<NN>-RESEARCH.md` (absent is legitimate when research is off or ran clean — still `✗`, the diagnosis says why not to worry)
-- one `<NN>-<YY>-PLAN` / `<NN>-<YY>-SUMMARY` pair per plan id in ROADMAP's `Plans:` list for the phase (or per instantiated file when the list is unfilled)
+- one `<NN>-<YY>-PLAN` / `<NN>-<YY>-SUMMARY` pair per plan id in ROADMAP's `Plans:` list for the phase (or per file present when the list is unfilled)
 - `VERIFICATION` → `VERIFICATION.md` filled (a real verdict line, not the template)
 
 **Runs line** — translate each marker (current phase's ids first, then any others):
@@ -98,7 +98,7 @@ Read `MAP.md` from this skill's folder — the hand-written flow map, and the on
 Then the single recommendation, as the last line:
 
 ```
-Type this next: /skill:<name>
+Type this next: /skill:<name> — in a fresh session (clear the current one; everything durable is on disk)
 ```
 
 It repeats the diagnosis's skill — one position, one command, no menu. Then stop (rule 4).
