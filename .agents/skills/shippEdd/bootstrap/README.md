@@ -1,6 +1,6 @@
 ## What it does
 
-`/skill:bootstrap` is the once-per-repo onboarding wizard for shippEdd. It detects what it can from the repo (git state, existing planning dirs, `gh` availability, greenfield vs brownfield), walks you through the few decisions it can't make for you — where workflow state lives, which toggles and model tiers, git policy, optional GitHub mirroring — then, after showing you the complete write list and getting a yes, creates the planning skeleton (`ROADMAP.md`, `STATE.md`, `REQUIREMENTS.md`, `config.json`, phase templates, todo/probe/run folders), appends a `## Workflow` block to `AGENTS.md`, and points you at `/skill:define`.
+`/skill:bootstrap` is the once-per-repo onboarding wizard for shippEdd. It detects what it can from the repo (git state, existing planning dirs, `gh` availability, greenfield vs brownfield), walks you through the few decisions it can't make for you — which agent harness you run (pi, opencode, hermes, cursor, codex, claude, gemini, github copilot, or a custom directory), where workflow state lives, which toggles and model tiers, git policy, optional GitHub mirroring — then, after showing you the complete write list and getting a yes, creates the planning skeleton (`ROADMAP.md`, `STATE.md`, `REQUIREMENTS.md`, `config.json`, phase templates, todo/probe/run folders), wires the four subagent personas into that harness's agent directory via `scripts/wire-agents.sh` (straight md copy; `mode: subagent` injection for opencode; TOML conversion for codex; report-and-skip for hermes), appends a `## Workflow` block to `AGENTS.md`, and points you at `/skill:define`.
 
 ## When to reach for it
 
@@ -23,6 +23,9 @@ Yes — edit `state_dir` in `.pi/planning.json` (or export `PLANNING_DIR` for a 
 **Why is there no `.pi/planning.json` after setup?**
 Absent = default. The file only exists when you chose something non-default (a custom state dir or model tiers). No choices made, no file written.
 
+**Does bootstrap work outside pi?**
+Yes — step 3b asks which harness you run: pi, opencode, hermes, cursor, codex, claude, gemini, github copilot, or a custom directory. `scripts/wire-agents.sh` wires the personas in that harness's native format (straight copy, injected `mode: subagent`, or TOML), with repair semantics throughout — a missing agents dir is created, identical files are skipped, a modified one is never silently overwritten. Hermes has no agents dir, so bootstrap reports and skips, pointing at `~/.hermes/config.yaml` profiles.
+
 **Will rerunning break my planning files?**
 No. A rerun detects existing state, reports what's missing, and offers to create only the gaps. Existing files are never overwritten.
 
@@ -32,6 +35,7 @@ No. A rerun detects existing state, reports what's missing, and offers to create
 - The state dir contains `ROADMAP.md`, `STATE.md`, `REQUIREMENTS.md`, `config.json`, `README.md`, `todos/`, `codebase/` (4 stubs), `runs/`, and `phases/_templates/` (5 phase templates).
 - `AGENTS.md` gained a `## Workflow` block naming the state dir and the "phases advance only via explicit skills" rule — with all prior content intact.
 - `.pi/planning.json` exists only if a non-default choice was made.
+- `scripts/wire-agents.sh <harness> --dry-run` prints the target dir, a per-persona action, and any conversion — without writing anything; a real run lands all four personas in that harness's project agent dir.
 - Rerunning `/skill:bootstrap` offers verify/repair and writes nothing you already wrote.
 
 ## Where it fits
