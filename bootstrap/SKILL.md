@@ -94,12 +94,11 @@ The skeleton copies from `templates/` into the state dir:
 | `REQUIREMENTS.md` | `<state>/REQUIREMENTS.md` | — |
 | `config.json` | `<state>/config.json` | toggle values exactly as chosen in step 4 |
 | `README.md` | `<state>/README.md` | documents every file + the absent=enabled convention |
-| `todos/PENDING-TODO.md` | `<state>/todos/PENDING-TODO.md` | also create empty `<state>/todos/pending/` |
 | `codebase/stack.md` … `testing.md` | `<state>/codebase/` | four stub probes |
 
-Phase templates (`NN-CONTEXT.md`, `NN-RESEARCH.md`, `NN-YY-PLAN.md`, `NN-YY-SUMMARY.md`, `VERIFICATION.md`) are not scaffolded into the state dir — `define` and `/skill:todo` copy them straight from this skill's `templates/` folder (repo-relative in the vendored install), with the same repair semantics.
+Repair semantics: a destination file that already exists is **left untouched**; only missing files are created. The skeleton also creates empty `<state>/todos/pending/` — the capture inbox `/skill:todo` fills.
 
-Repair semantics: a destination file that already exists is **left untouched**; only missing files are created. `todos/PENDING-TODO.md` is the note template `/skill:todo` copies to `todos/pending/<NN-slug>.md`.
+Phase templates (`NN-CONTEXT.md`, `NN-RESEARCH.md`, `NN-YY-PLAN.md`, `NN-YY-SUMMARY.md`, `VERIFICATION.md`) and the todo note template (`todos/PENDING-TODO.md`) are not scaffolded into the state dir — `define` and `/skill:todo` copy them straight from this skill's `templates/` folder (repo-relative in the vendored install), with the same repair semantics.
 
 ## Step 3b — PERSONAS (repo wiring, written after confirmation)
 
