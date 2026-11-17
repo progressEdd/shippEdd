@@ -96,8 +96,8 @@ The skeleton copies from `templates/` into the state dir:
 | `README.md` | `<state>/README.md` | documents every file + the absent=enabled convention |
 | `todos/PENDING-TODO.md` | `<state>/todos/PENDING-TODO.md` | also create empty `<state>/todos/pending/` |
 | `codebase/stack.md` … `testing.md` | `<state>/codebase/` | four stub probes |
-| `runs/.gitkeep` | `<state>/runs/.gitkeep` | — |
-| `NN-CONTEXT.md`, `NN-RESEARCH.md`, `NN-YY-PLAN.md`, `NN-YY-SUMMARY.md`, `VERIFICATION.md` | `<state>/phases/_templates/` | copied + renamed per phase by `define`/`implement` |
+
+Phase templates (`NN-CONTEXT.md`, `NN-RESEARCH.md`, `NN-YY-PLAN.md`, `NN-YY-SUMMARY.md`, `VERIFICATION.md`) are not scaffolded into the state dir — `define` and `/skill:todo` copy them straight from this skill's `templates/` folder (repo-relative in the vendored install), with the same repair semantics.
 
 Repair semantics: a destination file that already exists is **left untouched**; only missing files are created. `todos/PENDING-TODO.md` is the note template `/skill:todo` copies to `todos/pending/<NN-slug>.md`.
 

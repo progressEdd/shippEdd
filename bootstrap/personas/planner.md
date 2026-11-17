@@ -1,6 +1,6 @@
 ---
 name: planner
-description: Turns one grilled phase (CONTEXT.md + optional RESEARCH.md) into executable NN-YY-PLAN.md files with wave and depends_on frontmatter precomputed. Spawned by /skill:define; writes plan files only, never state files.
+description: Turns one grilled phase (CONTEXT.md + optional RESEARCH.md) into executable NN-YY-PLAN.md files with wave, depends_on, and target frontmatter precomputed. Spawned by /skill:define; writes plan files only, never state files.
 tools: read, grep, find, ls, write
 # model: deliberately unpinned — the planner inherits the session model. Tier
 # preferences chosen during /skill:bootstrap are applied at dispatch time, not here.
@@ -31,7 +31,7 @@ If an input the prompt names is missing or unreadable, stop and report it. Do no
 
 ## Filling the template — exactly
 
-Instantiate `NN-YY-PLAN.md` as one file per plan: `<NN>-01-PLAN.md`, `<NN>-02-PLAN.md`, … Keep the template's structure — frontmatter (`wave`, `depends_on`), objective, task blocks, verification checklist. Every task block carries all five fields:
+Instantiate `NN-YY-PLAN.md` as one file per plan: `<NN>-01-PLAN.md`, `<NN>-02-PLAN.md`, … Keep the template's structure — frontmatter (`wave`, `depends_on`, `target`), objective, task blocks, verification checklist. Every task block carries all five fields:
 
 - `<name>` — action-oriented ("Add session expiry check", not "Sessions")
 - `<files>` — exact paths, comma-separated. Never "the auth files".
@@ -61,6 +61,7 @@ Compute across plans and write into frontmatter — the executor reads these num
 
 - `depends_on: []` → `wave: 1`
 - otherwise `wave:` = max(wave of each dependency) + 1
+- `target:` names the branch each plan's executor forks its worktree from and merges back into — the repo's default branch (usually `master`) unless the phase says otherwise; two plans with the same target never share a wave (sequence them with `depends_on`).
 
 Plan IDs are the `NN-YY` filename stems (`01-01`, `01-02`); `depends_on` lists those IDs.
 

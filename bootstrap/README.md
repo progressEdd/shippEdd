@@ -32,7 +32,7 @@ No. A rerun detects existing state, reports what's missing, and offers to create
 ## It's working if
 
 - Running `scripts/state-dir.sh` prints exactly one line — the state dir (`$PLANNING_DIR` → `.pi/planning.json` → `.planning`).
-- The state dir contains `ROADMAP.md`, `STATE.md`, `REQUIREMENTS.md`, `config.json`, `README.md`, `todos/`, `codebase/` (4 stubs), `runs/`, and `phases/_templates/` (5 phase templates).
+- The state dir contains `ROADMAP.md`, `STATE.md`, `REQUIREMENTS.md`, `config.json`, `README.md`, `todos/`, and `codebase/` (4 stubs) — phase templates live in the skill's `bootstrap/templates/`, never in the state dir.
 - `AGENTS.md` gained a `## Workflow` block naming the state dir and the "phases advance only via explicit skills" rule — with all prior content intact.
 - `.pi/planning.json` exists only if a non-default choice was made.
 - `scripts/wire-agents.sh <harness> --dry-run` prints the target dir, a per-persona action, and any conversion — without writing anything; a real run lands all four personas in that harness's project agent dir.
