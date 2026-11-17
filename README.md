@@ -1,16 +1,27 @@
 # shippEdd
 A series of prompts for your ai coding agent
 
-## Embedded into `progressEdd`
+## Use shippEdd in your project
 
-This branch's contents are embedded into `progressEdd` at `.agents/skills/shippEdd/` via `git subtree`.
+Embed these skills into any repo with `git subtree`. They'll live under `.agents/skills/shippEdd/`, where agent harnesses can discover them.
 
-After committing changes here, sync the embedded copy from the main repo root:
-
+### Add
 ```bash
-git subtree merge --prefix=.agents/skills/shippEdd master --squash
+git subtree add --prefix=.agents/skills/shippEdd https://github.com/progressEdd/shippEdd.git master --squash
 ```
 
-> Note: `git subtree pull` expects a remote-style `<repository> <ref>` argument pair and will fail with
-> `fatal: you must provide <repository> <ref>` when given just a branch name. Use `subtree merge` for
-> local branches, as shown above.
+### Pull updates
+```bash
+git subtree pull --prefix=.agents/skills/shippEdd https://github.com/progressEdd/shippEdd.git master --squash
+```
+
+### Contribute changes back
+Edits made in your embedded copy can be pushed back as a branch for review:
+```bash
+git subtree push --prefix=.agents/skills/shippEdd https://github.com/progressEdd/shippEdd.git my-changes
+```
+
+> Tip: `git subtree` commands accept any prefix path — `.agents/skills/shippEdd` just matches the
+> convention used by this repo's agent harness. This repo itself embeds `master` at that path on its
+> `progressEdd` branch, synced with:
+> `git subtree merge --prefix=.agents/skills/shippEdd master --squash`.
