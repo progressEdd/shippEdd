@@ -192,7 +192,7 @@ If mirror: add `"github": { "mirror_issues": true }` to `<state>/config.json`. A
   If the researcher persona is still not usable after step 3b (the user kept a differing existing file), say so and offer to fill the stubs inline instead.
 - **Either way**, end with (and do not run it yourself):
 
-  > Setup complete. Next: `/skill:define` to grill out your first phase.
+  > Setup complete. Next: `/skill:define` to grill out your first phase — in a fresh session (clear this context first; everything durable is on disk).
 
 ## Confirmation gate
 

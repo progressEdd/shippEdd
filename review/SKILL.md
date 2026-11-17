@@ -195,10 +195,10 @@ Phase <NN>-<slug> — shipped
 
 If a next unchecked phase exists on the roadmap:
 
-> Phase `<NN>-<slug>` shipped — <one line: verdict, PR if any>. Next: `/skill:define` for `<next phase>`.
+> Phase `<NN>-<slug>` shipped — <one line: verdict, PR if any>. Next: `/skill:define` for `<next phase>` — in a fresh session (clear this context first; everything durable is on disk).
 
 If the roadmap is complete:
 
-> Phase `<NN>-<slug>` shipped — that was the last one. Next: `/skill:todo` to bank what comes next (or `/skill:define` to mint a new phase from a one-line intent).
+> Phase `<NN>-<slug>` shipped — that was the last one. Next: `/skill:todo` to bank what comes next (or `/skill:define` to mint a new phase from a one-line intent) — in a fresh session (clear this context first; everything durable is on disk).
 
 Then stop (rule 7).

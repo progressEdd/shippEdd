@@ -154,6 +154,6 @@ Every plan is landed or skipped. Update `<state>/STATE.md`:
 
 Then hand off:
 
-> Phase `<NN>-<slug>` executed — <N> plans across <M> waves, merged into their targets in plan order. Next: `/skill:review` to verify coverage and ship.
+> Phase `<NN>-<slug>` executed — <N> plans across <M> waves, merged into their targets in plan order. Next: `/skill:review` to verify coverage and ship — in a fresh session (clear this context first; everything durable is on disk).
 
 And stop (rule 6).

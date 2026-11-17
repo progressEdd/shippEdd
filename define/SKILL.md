@@ -270,6 +270,6 @@ On approval:
 
 ## Step 8 — handoff
 
-> Phase `<NN>-<slug>` planned — <N> plans in <M> waves. Next: `/skill:implement` to run wave 1.
+> Phase `<NN>-<slug>` planned — <N> plans in <M> waves. Next: `/skill:implement` to run wave 1 — in a fresh session (clear this context first; everything durable is on disk).
 
 Then stop (rule 6). Do not run it yourself.
