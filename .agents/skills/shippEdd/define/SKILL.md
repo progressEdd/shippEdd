@@ -160,10 +160,10 @@ Research always runs in an isolated context; your session never carries the rese
 Compose a self-contained prompt file at `<state>/runs/<id>.prompt.md`, where the run id is `<NN>-research` (e.g. `01-research`). Background runs load no personas from `.pi/agents/` — a detached `pi --print` run carries its persona in its prompt file. The prompt points at the persona file as the single source of truth (never a copy of it), states the task, and ends with the completion contract:
 
 ```
-Read <repo-root>/.pi/agents/researcher.md and operate as that agent for the task below.
+Read .pi/agents/researcher.md and operate as that agent for the task below.
 
 ## Task
-You are researching phase <NN>-<slug> for the shippEdd workflow in this repo (repo root: <absolute path>).
+You are researching phase <NN>-<slug> for the shippEdd workflow in this repo (the repo root is this run's working directory).
 
 Answer these questions, gathered during grilling:
 <each open factual question from CONTEXT.md, numbered>
