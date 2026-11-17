@@ -8,11 +8,10 @@ Templates for the shippEdd workflow state dir. The `bootstrap` skill copies this
 - `config.json` — workflow toggles, written explicitly as chosen at setup.
 - `NN-CONTEXT.md` — decisions captured by `/skill:define` grilling for a phase.
 - `NN-RESEARCH.md` — background researcher output for a phase.
-- `NN-YY-PLAN.md` — executable plan: `wave` / `depends_on` frontmatter + task blocks (`<files>` / `<action>` / `<verify>` / `<acceptance_criteria>`).
-- `NN-YY-SUMMARY.md` — executor-written record: `provides` / `key-files` / `key-decisions` / `actuals` frontmatter + body.
+- `NN-YY-PLAN.md` — executable plan: `wave` / `depends_on` / `target` frontmatter + task blocks (`<files>` / `<action>` / `<verify>` / `<acceptance_criteria>`).
+- `NN-YY-SUMMARY.md` — executor-written execution record: `status` / `duration` / `key-files` / `requirements-completed` / `key-decisions` / `deviations` frontmatter + body.
 - `VERIFICATION.md` — requirement coverage (REQ-IDs) + decision coverage + gaps found.
 - `todos/PENDING-TODO.md` — capture-note template; `/skill:todo` copies it to `todos/pending/<NN-slug>.md`.
 - `codebase/` — four stub probes (stack, architecture, conventions, testing) the researcher fills in brownfield repos.
-- `runs/` — background run markers and logs (empty until the first dispatch).
 
 **Config convention — absent = enabled:** JSON has no comments, so the rule lives here: any key missing from `config.json` (or the entire file) means the feature is **enabled**. `ui_phase` defaults to *off* at setup, so it is always written explicitly. Toggles only ever disable.

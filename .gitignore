@@ -3,10 +3,6 @@
 !02-worktrees/.gitkeep
 !02-worktrees/README.md
 
-# Workflow run state (markers, logs, prompts are local-only)
-.planning/runs/
-
-
 # Byte-compiled / optimized / DLL files
 __pycache__/
 *.py[cod]
