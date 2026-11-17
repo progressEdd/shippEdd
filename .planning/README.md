@@ -8,10 +8,10 @@ Templates for the shippEdd workflow state dir. The `bootstrap` skill copies this
 - `config.json` — workflow toggles, written explicitly as chosen at setup.
 - `NN-CONTEXT.md` — decisions captured by `/skill:define` grilling for a phase.
 - `NN-RESEARCH.md` — background researcher output for a phase.
-- `NN-YY-PLAN.md` — executable plan: `wave` / `depends_on` / `target` frontmatter + task blocks (`<files>` / `<action>` / `<verify>` / `<acceptance_criteria>`).
-- `NN-YY-SUMMARY.md` — executor-written execution record: `status` / `duration` / `key-files` / `requirements-completed` / `key-decisions` / `deviations` frontmatter + body.
+- `NN-0N-PLAN.md` — executable-plan template; the planner instantiates it once per plan: `wave` / `depends_on` / `target` frontmatter + task blocks (`<files>` / `<action>` / `<verify>` / `<acceptance_criteria>`).
+- `NN-0N-SUMMARY.md` — execution-record template; each executor instantiates it at write time: `status` / `duration` / `key-files` / `requirements-completed` / `key-decisions` / `deviations` frontmatter + body.
 - `VERIFICATION.md` — requirement coverage (REQ-IDs) + decision coverage + gaps found.
-- `todos/PENDING-TODO.md` — capture-note template; `/skill:todo` copies it to `todos/pending/<NN-slug>.md`.
+- `todos/pending/` — parked stray work from `/skill:todo`; promoted todos graduate to `todos/done/`. The capture-note template lives in the skill's `bootstrap/templates/todos/`, never in the state dir.
 - `codebase/` — four stub probes (stack, architecture, conventions, testing) the researcher fills in brownfield repos.
 
 **Config convention — absent = enabled:** JSON has no comments, so the rule lives here: any key missing from `config.json` (or the entire file) means the feature is **enabled**. `ui_phase` defaults to *off* at setup, so it is always written explicitly. Toggles only ever disable.

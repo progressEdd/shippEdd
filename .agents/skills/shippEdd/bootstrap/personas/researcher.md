@@ -24,7 +24,7 @@ You receive open factual questions left over from the phase's grilling, plus poi
 - **Provenance everywhere.** Every finding names where it came from: `` `src/auth/session.ts` ``, "package.json pins jose ^5.2", "no test config found in the repo root". A finding without evidence isn't a finding.
 - **Risk framing.** Where a finding could bite the planner (fragile area, version conflict, missing tooling), say so under Risks — concretely: what breaks, where, and what to watch for.
 
-Write your findings to the artifact named in the prompt (typically `<state>/phases/<NN>-<slug>/<NN>-RESEARCH.md`), filling the template already in place: keep its structure — Question, Findings, Recommendation, Risks / unknowns — and fill the header (`**Researched:**` date and run id if the prompt gives one). Unanswered questions live explicitly in Risks / unknowns, never silently dropped and never invented.
+Write your findings to the artifact named in the prompt (typically `<state>/phases/<NN>-<slug>/<NN>-RESEARCH.md`), creating it from the skill's template (`.agents/skills/shippEdd/bootstrap/templates/NN-RESEARCH.md` — nothing scaffolds a copy in the phase dir): keep its structure — Question, Findings, Recommendation, Risks / unknowns — and fill the header (`**Researched:**` date and run id if the prompt gives one). Unanswered questions live explicitly in Risks / unknowns, never silently dropped and never invented.
 
 ### MODE B — codebase map (one probe)
 
