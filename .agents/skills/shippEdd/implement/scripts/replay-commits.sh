@@ -3,7 +3,9 @@
 # wave share the working tree, and concurrent git would race on the index lock.
 # Each executor records a per-task commit spec instead; this script replays the
 # specs sequentially (one commit per task line, plans in glob order) and stamps
-# each plan's .done marker so re-entry never double-commits.
+# each plan's .done marker so re-entry never double-commits. Only plan markers
+# (NN-YY.done) are replayed; per-task markers (NN-YY-TT.done) are sequenced by
+# the implement gate, not here.
 #
 # Usage: replay-commits.sh     (no args — scans <state>/runs/*.done)
 # TSV line: <commit message><TAB><path1,path2,...>  — message single-line, no
@@ -15,7 +17,7 @@ root="$(git rev-parse --show-toplevel 2>/dev/null || pwd)"
 runs="$root/$("$here/state-dir.sh")/runs"
 cd "$root"
 
-for marker in "$runs"/*.done; do
+for marker in "$runs"/[0-9][0-9]-[0-9][0-9].done; do  # plan markers only — NN-YY.done, not NN-YY-TT.done
   [ -f "$marker" ] || continue
   grep -q '^committed ' "$marker" && continue                 # already replayed
   id="$(basename "${marker%.done}")"

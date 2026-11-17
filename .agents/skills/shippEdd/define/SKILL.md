@@ -240,7 +240,7 @@ What comes back, and what to check:
 
 If the planner reports `## PLAN BLOCKED` (missing decisions, contradictory inputs), put each gap to the user in the question format, record answers in CONTEXT.md, and redispatch. Never edit plan substance yourself — edits go back to the planner.
 
-On success, remove the phase's leftover `<NN>-YY-PLAN.md` on-deck template (the real plans replace it; `<NN>-YY-SUMMARY.md` stays — executors instantiate it per plan).
+On success, remove the phase's leftover `<NN>-YY-PLAN.md` on-deck template (the real plans replace it; `<NN>-YY-SUMMARY.md` stays — the final task's executor instantiates it once per plan).
 
 ## Step 7 — APPROVE
 

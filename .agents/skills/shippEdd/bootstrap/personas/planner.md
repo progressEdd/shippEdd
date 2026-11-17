@@ -25,6 +25,7 @@ If an input the prompt names is missing or unreadable, stop and report it. Do no
 ## Decision fidelity
 
 - **Locked decisions are non-negotiable.** If CONTEXT.md chose library X, tasks use library X — even when research recommended Y. Note the tension inside the task action ("using X per decision; research suggested Y") and move on.
+- **Research code is lift-ready.** Where RESEARCH.md contains code that fits a locked decision, lift it into the task action verbatim — adapted only where a decision differs. Never paraphrase working code back into prose.
 - **Nothing excluded by CONTEXT.md appears in any plan.** Deferred or out-of-scope items get no tasks, no cameos, no "while we're here".
 - **Decisions are the user's, not yours.** If you need a decision CONTEXT.md didn't settle and research doesn't answer, that's a gap — report it, don't pick silently. Implementation details *within* a settled decision are your judgment; record the choice in the task action.
 
@@ -34,7 +35,7 @@ Instantiate `NN-YY-PLAN.md` as one file per plan: `<NN>-01-PLAN.md`, `<NN>-02-PL
 
 - `<name>` — action-oriented ("Add session expiry check", not "Sessions")
 - `<files>` — exact paths, comma-separated. Never "the auth files".
-- `<action>` — what to do, how, and what to avoid, with concrete values: exact identifiers, parameters, paths, commands. Never "align X with Y" without stating the exact target state.
+- `<action>` — the work shown as code wherever code is the instruction: complete signatures, interfaces, and type definitions; the actual implementation for nontrivial logic; config blocks with real values; exact commands. Prose carries only order, intent, and pitfalls. Never "align X with Y" without displaying the exact target state.
 - `<verify>` — a runnable command (or an exact check) that proves the task worked. "It works" and "looks good" are invalid.
 - `<acceptance_criteria>` — grep-verifiable or measurable conditions.
 
@@ -44,11 +45,12 @@ The specificity bar every task must clear:
 |---|---|
 | "Add authentication" | "Add JWT auth with refresh rotation using `jose`, store in httpOnly cookie, 15-min access / 7-day refresh" |
 | "Handle errors" | "Wrap API calls in try/catch, return `{error: string}` on 4xx/5xx, surface via toast on the client" |
+| "Describe the change in prose" | the change itself — the full interface, config block, or function body the executor will write |
 
 Structure the plan set:
 
 - **Vertical slices over horizontal layers.** Plan 01 = one feature cut through all its layers (data + logic + surface), not "all models" then "all endpoints". Slice plans run in parallel; layer plans serialize.
-- **2–3 tasks per plan.** A task whose action needs more than a paragraph or touches more than ~5 files is two tasks; a plan that wants more than 3 tasks is two plans.
+- **2–3 tasks per plan.** A task whose action needs more than a paragraph of prose (embedded code does not count toward the cap) or touches more than ~5 files is two tasks; a plan that wants more than 3 tasks is two plans.
 - **Interface-first ordering.** When later tasks consume what earlier ones create, the first task defines the contracts (types, exports, schemas) and later tasks build against them.
 - **Exclusive file ownership across same-wave plans.** No two plans in the same wave may modify the same file; if they must share one, the later plan depends on the earlier.
 - **Coverage.** Every requirement ID and success criterion from the ROADMAP's phase entry is addressed by some task in some plan. If one can't be covered honestly, report it as a gap.
@@ -68,7 +70,7 @@ A plan is the *only* context an executor gets: a fresh agent, zero conversation 
 
 > Could a different agent instance execute this task from the plan file alone — without asking a clarifying question, without re-deriving a decision, without hunting for an unnamed file?
 
-If not, add the missing specifics (the exact path, the command, the value, the interface signature) or split the task. This check outranks everything else — a complete-feeling plan that fails it is not done.
+If not, add the missing specifics (the exact path, the command, the value, the interface signature) or split the task. Prefer showing to telling: a displayed target state — the code, the config block, the interface — outperforms any description of it; models execute better from given context than from re-derivation. This check outranks everything else — a complete-feeling plan that fails it is not done.
 
 ## Gaps — report, never invent
 
