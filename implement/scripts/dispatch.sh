@@ -1,53 +1,61 @@
 #!/usr/bin/env bash
-# shippEdd background dispatcher. Generic by design: the ROLE lives in the
-# prompt file, not here. The detached `pi --print` run gets its persona inline
-# in its prompt, flips its own marker (.running -> .done / .failed), and is
-# never waited on or post-processed by this script.
+# shippEdd shared background dispatcher. Generic by design: the ROLE lives in
+# the prompt file, not here, and run state lives wherever --state-dir says.
+# Default state dir is <state>/runs — define/review/wayfind's transitional
+# home until their migration; implement passes a $TMPDIR run dir explicitly.
+# The detached `pi --print` run flips its own marker (.running -> .done /
+# .failed) and is never waited on or post-processed by this script.
 #
 # Usage:
-#   dispatch.sh <id> <prompt-file> [--model <model-id>] [--force]
-#   dispatch.sh --status
+#   dispatch.sh <id> <prompt-file> [--state-dir <dir>] [--model <model-id>] [--force]
+#   dispatch.sh --status [--state-dir <dir>]
 #
 # Abort semantics: to stop a run, kill the PID recorded in its .running marker.
 # An aborted run never flips — a stale .running marker whose PID is dead means
-# aborted/failed; the next orchestrator command should offer cleanup (inspect
-# the log, then delete the stale marker before redispatching).
+# aborted/failed; the next orchestrator visit offers cleanup (inspect the log,
+# then delete the stale marker before redispatching). A MISSING state dir
+# means "state unknown" — never a failure: derive plan state from artifacts.
 set -euo pipefail
 
 here="$(cd "$(dirname "$0")" && pwd)"
 root="$(git rev-parse --show-toplevel 2>/dev/null || pwd)"
-runs="$root/$("$here/state-dir.sh")/runs"
-mkdir -p "$runs"
+default_dir="$root/$("$here/state-dir.sh")/runs"
 
 if [ "${1:-}" = "--status" ]; then
+  shift
+  runs="$default_dir"
+  if [ "${1:-}" = "--state-dir" ]; then runs="${2:?--state-dir needs a value}"; shift 2; fi
   for marker in "$runs"/*.running "$runs"/*.done "$runs"/*.failed; do
     [ -f "$marker" ] || continue
     id="$(basename "${marker%.*}")"
     pid="$(head -n1 "$marker" 2>/dev/null | grep -oE '[0-9]+' || true)"
     alive=dead
     if [ -n "$pid" ] && kill -0 "$pid" 2>/dev/null; then alive=alive; fi
-    size="$(wc -c < "$runs/$id.log" 2>/dev/null | tr -d '[:space:]')" || size=0
-    printf '%s  %s  pid %s %s  log %s bytes\n' "$id" "${marker##*.}" "${pid:-?}" "$alive" "${size:-0}"
+    size=0
+    [ -f "$runs/$id.log" ] && size="$(wc -c < "$runs/$id.log" | tr -d '[:space:]')"
+    printf '%s  %s  pid %s %s  log %s bytes\n' "$id" "${marker##*.}" "${pid:-?}" "$alive" "$size"
   done
   exit 0
 fi
 
-usage='usage: dispatch.sh <id> <prompt-file> [--model <model-id>] [--force] | dispatch.sh --status'
+usage='usage: dispatch.sh <id> <prompt-file> [--state-dir <dir>] [--model <model-id>] [--force] | dispatch.sh --status [--state-dir <dir>]'
 id="${1:?$usage}"
 prompt="${2:?$usage}"
 shift 2
-model=(); force=0
+runs="$default_dir"; model=(); force=0
 while [ $# -gt 0 ]; do
   case "$1" in
+    --state-dir) runs="${2:?$usage}"; shift 2 ;;
     --model) model=(--model "${2:?$usage}"); shift 2 ;;
     --force) force=1; shift ;;
     *) echo "unknown option: $1" >&2; exit 1 ;;
   esac
 done
 
+mkdir -p "$runs"
 case "$prompt" in /*) ;; *) prompt="$PWD/$prompt" ;; esac
 if [ "$force" -eq 0 ] && { [ -e "$runs/$id.running" ] || [ -e "$runs/$id.done" ] || [ -e "$runs/$id.failed" ]; }; then
-  echo "refused: run '$id' already has a marker (use --force to redispatch)" >&2; exit 1
+  echo "refused: run '$id' already has a marker in $runs (use --force to redispatch)" >&2; exit 1
 fi
 [ -f "$prompt" ] || { echo "no such prompt file: $prompt" >&2; exit 1; }
 if [ "$force" -eq 1 ]; then rm -f "$runs/$id.running" "$runs/$id.done" "$runs/$id.failed"; fi
