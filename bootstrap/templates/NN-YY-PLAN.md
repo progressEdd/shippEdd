@@ -1,6 +1,7 @@
 ---
 wave: <N>
 depends_on: [<plan-ids this plan requires, e.g. "01-01", or [] >]
+target: <branch this plan's executor forks from and merges back into, e.g. "master" — omitted means master>
 ---
 
 # Plan <NN-YY>: <title>
@@ -45,11 +46,11 @@ Before declaring this plan complete:
 
 <!--
 Waves run in parallel within a number, sequentially across numbers; depends_on
-lists the plan IDs that must finish first. Both are precomputed at plan time —
-/skill:implement reads them from this frontmatter, no runtime analysis.
-Executors are fed one task block at a time (/skill:implement slices this file
-per task), so every block must stand alone: its code exact, its context inside
-its own <action>.
-On completion the final task's executor writes NN-YY-SUMMARY.md next to this
-file.
+lists the plan IDs that must finish first; target names the branch each plan's
+executor forks its worktree from and merges back into. All three are
+precomputed at plan time — /skill:implement reads them from this frontmatter,
+no runtime analysis.
+One executor per plan walks the task sections in order, commits each task
+atomically in its own agent worktree, and writes NN-YY-SUMMARY.md next to this
+file on completion.
 -->

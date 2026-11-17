@@ -1,18 +1,18 @@
 ---
 name: review
-description: Verifies the executed phase with a fresh-context verifier subagent (requirement, decision, and task coverage — actually run), walks any gaps into fix plans via the planner, and ships when green — commit, optional PR, archive the phase, tick the roadmap. Run /skill:review after /skill:implement finishes all plans.
+description: Verifies the executed phase with a fresh-context verifier subagent (requirement, decision, and task coverage — actually run), walks any gaps into fix plans via the planner, and ships when green — commit, optional PR, tick the roadmap. Run /skill:review after /skill:implement finishes all plans.
 disable-model-invocation: true
 ---
 
 # shippEdd review — verify it, then ship it
 
-You are the orchestrator for the verify→ship half of the phase loop. You dispatch a fresh-context verifier to coverage-check the executed phase, read its report, and — this is your second half — when the verdict is green, ship in the same breath: commit the state dir, tick the roadmap, archive the phase, optionally push and open a PR. Between those halves sits the gap loop: gaps become fix plans written by the planner and executed by `/skill:implement`; you re-verify after. You are the only skill allowed to touch git remotely or mutate roadmap history.
+You are the orchestrator for the verify→ship half of the phase loop. You dispatch a fresh-context verifier to coverage-check the executed phase, read its report, and — this is your second half — when the verdict is green, ship in the same breath: commit the state dir, tick the roadmap, optionally push and open a PR. Between those halves sits the gap loop: gaps become fix plans written by the planner and executed by `/skill:implement`; you re-verify after. You are the only skill allowed to touch git remotely or mutate roadmap history.
 
-`<state>` is the workflow state dir resolved in step 0; all other paths are relative to it or to the repo root. This skill is self-contained: its scripts (`scripts/state-dir.sh`, `scripts/dispatch.sh`) live in this folder. There is deliberately no `replay-commits.sh` here — gap fixes route through implement's commit machinery, never through review.
+`<state>` is the workflow state dir resolved in step 0; all other paths are relative to it or to the repo root. This skill is self-contained: its scripts (`scripts/state-dir.sh`, `scripts/dispatch.sh`) live in this folder. Gap fixes route through implement's wave/merge-back machinery, never through review.
 
 ## Ground rules
 
-1. **Orchestrate, don't labor** — verification runs in a detached fresh-context run; fix plans are written by the planner; implementation happens in executors. Review itself never implements, never fixes, never replays a commit. Your session carries the report digest and the ship receipt, never implementation detail.
+1. **Orchestrate, don't labor** — verification runs in a detached fresh-context run; fix plans are written by the planner; implementation happens in executors. Review itself never implements, never fixes, never merges back. Your session carries the report digest and the ship receipt, never implementation detail.
 2. **Markers are truth** — the verify run's state is its marker in `<state>/runs/`, never session memory. `/skill:review` may be re-run at any moment, mid-verify or mid-gap-loop; it reads state, it doesn't remember it.
 3. **Every question uses exactly this format** (identical to bootstrap's, define's, implement's):
 
@@ -23,9 +23,9 @@ You are the orchestrator for the verify→ship half of the phase loop. You dispa
        3. <option>
    ```
 
-4. **Gaps route through implement** — a gap becomes a fix plan (`NN-FX1-PLAN.md`, …) that `/skill:implement` dispatches and replays like any wave; then the user re-runs `/skill:review` to re-verify. Keeping fixes out of review keeps the judge out of the implementation.
+4. **Gaps route through implement** — a gap becomes a fix plan (`NN-FX1-PLAN.md`, …) that `/skill:implement` dispatches and merges back like any wave; then the user re-runs `/skill:review` to re-verify. Keeping fixes out of review keeps the judge out of the implementation.
 5. **Ship is gated** — shipping happens only on `## VERIFICATION PASSED` with zero unaccepted gaps. A gap the user explicitly accepts, with a reason, is recorded in VERIFICATION.md under `## Accepted gaps` and stops counting against the gate.
-6. **Review owns the ship-time git surface** — commit tracked state-dir changes, tick ROADMAP, archive the phase, and (only if `gh` and a remote exist) push/PR/audit issue. Whether the state dir is tracked was bootstrap's decision: test with `git check-ignore`, never force-add an ignored state dir.
+6. **Review owns the ship-time git surface** — commit tracked state-dir changes, tick ROADMAP, and (only if `gh` and a remote exist) push/PR/audit issue. Whether the state dir is tracked was bootstrap's decision: test with `git check-ignore`, never force-add an ignored state dir.
 7. **Recommend and stop** — nothing auto-fires. The skill ends by naming the next command (`/skill:implement`, `/skill:define`, or `/skill:todo`). Never run it yourself.
 
 ## Step 0 — resolve the state dir
@@ -47,17 +47,17 @@ Read (never ask for) the state:
 - `<state>/phases/<NN>-<slug>/` — the phase folder: enumerate the `NN-*-PLAN.md` files. A filename whose stem still contains `YY` is the on-deck template, not a plan.
 - `<state>/config.json` — `github.mirror_issues` (absent = off)
 
-**Target phase**: the phase named in STATE.md's body; if STATE.md and the phase dir disagree, the dir wins — markers are truth. If that phase already lives under `phases/_archive/`, it shipped: recommend `/skill:define` (or `/skill:todo` if the roadmap is complete) and stop.
+**Target phase**: the phase named in STATE.md's body; if STATE.md and the phase dir disagree, the dir wins. Shipped-ness derives from state, never a directory location: ROADMAP's phase checkbox ticked or STATE.md's `progress: shipped` means it shipped — recommend `/skill:define` (or `/skill:todo` if the roadmap is complete) and stop.
 
-**Marker-gate every plan** — the phase is verifiable iff each of its `NN-YY` plans has `<state>/runs/NN-YY.done` carrying a `committed` line (that is implement's completion signature). Anything else — `.running` (live or stale), `.failed`, no marker — means execution isn't finished, and execution is implement's lane (waves, cleanup, commit replay all live there). Say:
+**Gate every plan on its artifact** — the phase is verifiable iff each of its `NN-YY` plans has a `NN-YY-SUMMARY.md` whose frontmatter carries `status: complete` (implement's completion signature is the artifact) or is recorded skipped under `## Skipped plans` in the phase's `NN-CONTEXT.md`. Anything else — a SUMMARY with `status: blocked`, or no SUMMARY at all (in flight, interrupted, never started) — means execution isn't finished, and execution is implement's lane (worktree dispatch, cleanup, merge-back all live there). Say:
 
-> Phase `<NN>-<slug>` isn't fully executed yet — plan `<NN-YY>` has no committed `.done` marker. Run `/skill:implement` first; it owns wave gating, cleanup, and commit replay.
+> Phase `<NN>-<slug>` isn't fully executed yet — plan `<NN-YY>` has no completed SUMMARY. Run `/skill:implement` first; it owns worktree dispatch and merge-back.
 
 Then stop.
 
 **Re-verify detection**: if the phase's `VERIFICATION.md` is a filled report (a real verdict line, no `<…>` placeholders — `define` leaves the raw template there), this is a re-entry after a gap loop; note it — the next verify run takes a suffixed id (step 2).
 
-Report a two-line summary (phase, plans done+committed, prior verification if any), then dispatch.
+Report a two-line summary (phase, plans with completed SUMMARYs, prior verification if any), then dispatch.
 
 ## Step 2 — DISPATCH the verifier (background)
 
@@ -76,7 +76,7 @@ Inputs:
 - Phase dir: <state>/phases/<NN>-<slug>/ — <NN>-CONTEXT.md (settled decisions), every <NN>-<YY>-PLAN.md, every <NN>-<YY>-SUMMARY.md, and VERIFICATION.md if a prior round filled it (its `## Accepted gaps` section carries forward)
 - Requirements: <state>/REQUIREMENTS.md — REQ-IDs mapped to this phase: <comma-separated REQ-IDs, or "none recorded">
 - Roadmap: <state>/ROADMAP.md — this phase's entry (goal, requirements, success criteria)
-- Commits: the `committed <sha>` lines in <state>/runs/<NN>-*.done markers — cross-check read-only with git log
+- Commits: the task-commit hashes recorded in each plan's `NN-YY-SUMMARY.md` — cross-check read-only with `git log --grep "<NN>-YY>:"` and the `merge(<NN>-YY>):` merge commits on each plan's target branch
 
 Artifact: write <state>/phases/<NN>-<slug>/VERIFICATION.md, replacing what's there, per your persona's report contract.
 
@@ -139,9 +139,9 @@ Find the newest verify run for the phase (highest id suffix) and gate on its mar
    - Gaps: <state>/phases/<NN>-<slug>/VERIFICATION.md — the `## Gaps found` section is your spec; every gap must be covered by exactly one fix plan (gaps sharing a root cause may share one)
    - Context: <state>/phases/<NN>-<slug>/<NN>-CONTEXT.md — decisions, locked
    - Pattern: the phase's existing <NN>-<YY>-PLAN.md files — match their task-block shape exactly
-   - Template: <state>/phases/_templates/NN-YY-PLAN.md (or .agents/skills/shippEdd/bootstrap/templates/NN-YY-PLAN.md if the stash is missing)
+   - Template: `.agents/skills/shippEdd/bootstrap/templates/NN-YY-PLAN.md`
 
-   Write one fix plan per gap: <NN>-FX1-PLAN.md, <NN>-FX2-PLAN.md, … continuing the numbering from any FX files already in the phase dir. Frontmatter: wave: <current max wave across the phase's plans> + 1, depends_on: []. Same task-block discipline as any plan: exact files, actions, runnable verify commands, acceptance criteria. Fix plans write files only — never STATE.md or ROADMAP.md.
+   Write one fix plan per gap: <NN>-FX1-PLAN.md, <NN>-FX2-PLAN.md, … continuing the numbering from any FX files already in the phase dir. Frontmatter: wave: <current max wave across the phase's plans> + 1, depends_on: [], target: <the affected plan's target branch>. Same task-block discipline as any plan: exact files, actions, runnable verify commands, acceptance criteria. Fix plans write files only — never STATE.md or ROADMAP.md.
    ```
 
    On return, check every gap is covered by a plan (a gap without a plan goes back to the planner), then update `<state>/STATE.md`: `next_action: /skill:implement`, `progress: planned`, body — "review: <N> gaps found — fix plans <ids> awaiting execution". Then:
@@ -166,12 +166,11 @@ Find the newest verify run for the phase (highest id suffix) and gate on its mar
 
 Runs only on `## VERIFICATION PASSED` or "every gap accepted" — never with an open gap. In order:
 
-1. **Commit the state dir** (iff tracked). `git check-ignore -q <state>` — exit 0 means ignored: skip silently, bootstrap's git policy already decided, never force-add. Otherwise `git add -- <state>` and, if anything staged, `git commit -m "chore(<NN>-<slug>): verification + phase artifacts"`.
+1. **Commit the state dir** (iff tracked). First clear transient dispatch state so it can never be committed: `rm -rf <state>/runs` (define/review's dispatchers recreate it on demand — it is not part of the schema). Then `git check-ignore -q <state>` — exit 0 means ignored: skip silently, bootstrap's git policy already decided, never force-add. Otherwise `git add -- <state>` and, if anything staged, `git commit -m "chore(<NN>-<slug>): verification + phase artifacts"`.
 2. **ROADMAP** — tick the phase checkbox (`- [ ] **Phase <NN>:` → `- [x]`), tick its `Plans:` checkboxes, update its Progress-table row (`<N>/<N>`, `Shipped`, today's date), and advance `## Next up` to the next unchecked phase — or write `**none — roadmap complete**`.
-3. **Archive** — `mkdir -p <state>/phases/_archive && mv <state>/phases/<NN>-<slug> <state>/phases/_archive/<NN>-<slug>`. The `_` prefix marks it non-live, matching `_templates/`.
-4. **STATE.md** — frontmatter: `next_action: /skill:define`, `progress: shipped`. Body: the phase, `shipped — <verdict line; accepted gaps if any>`, and the next phase (or "roadmap complete").
-5. **Commit the ship mutations** — same tracked check as (1): `git add -- <state>` and, if anything staged, `git commit -m "chore(<NN>-<slug>): ship — tick roadmap, archive phase"`.
-6. **Push / PR** — only if `command -v gh` succeeds **and** `git remote` is non-empty; otherwise one line — "no gh or no git remote — commits stay local" — and skip:
+3. **STATE.md** — frontmatter: `next_action: /skill:define`, `progress: shipped`. Body: the phase, `shipped — <verdict line; accepted gaps if any>`, and the next phase (or "roadmap complete").
+4. **Commit the ship mutations** — same tracked check as (1): `git add -- <state>` and, if anything staged, `git commit -m "chore(<NN>-<slug>): ship — tick roadmap"`.
+5. **Push / PR** — only if `command -v gh` succeeds **and** `git remote` is non-empty; otherwise one line — "no gh or no git remote — commits stay local" — and skip:
 
    ```
    ❓ Push and open a PR for this phase?
@@ -181,15 +180,14 @@ Runs only on `## VERIFICATION PASSED` or "every gap accepted" — never with an 
    ```
 
    The **phase digest** (PR title/body) is built from the phase's SUMMARY files (frontmatter `provides` + Accomplishments) plus the verification verdict (the counts and any accepted gaps). Title: `Phase <NN>-<slug>: <goal>`.
-7. **Audit issue** — iff `<state>/config.json` has `"github": { "mirror_issues": true }` **and** gh + remote exist: create one issue titled `Phase <NN>-<slug>: shipped` with the digest body, then close it immediately as completed (`gh issue close <n> --reason completed`). It is an audit record, not workflow state — one line in the receipt.
+6. **Audit issue** — iff `<state>/config.json` has `"github": { "mirror_issues": true }` **and** gh + remote exist: create one issue titled `Phase <NN>-<slug>: shipped` with the digest body, then close it immediately as completed (`gh issue close <n> --reason completed`). It is an audit record, not workflow state — one line in the receipt.
 
 Then present the **ship receipt**:
 
 ```
 Phase <NN>-<slug> — shipped
-  commits   <k> (the committed lines in the phase's run markers)
+  commits   <k> (the phase's merge and docs commits)
   PR        <url, or "—">
-  archive   <state>/phases/_archive/<NN>-<slug>
   next up   <next phase — start with /skill:define, or "roadmap complete">
 ```
 

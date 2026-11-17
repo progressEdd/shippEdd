@@ -8,8 +8,8 @@ One loop, travelled once per phase: **define → implement → review → define
 
 - **/skill:bootstrap** — creates the state dir, skeleton, toggles, model tiers. *Go there when* no state dir exists yet — or to repair the skeleton / change a setting (idempotent: fills gaps, never overwrites).
 - **/skill:define** — grills the phase into decisions (CONTEXT.md), dispatches background research, returns approved plan files. *Go there when* the roadmap's next phase isn't planned yet: no decisions on file, no plan files, or a replan is wanted.
-- **/skill:implement** — runs approved plans as background waves, one detached executor per plan, then replays their recorded commits in plan order. *Go there when* plans are approved and not every plan marker reads `.done` + `committed`.
-- **/skill:review** — verifies coverage with a fresh-context verifier, walks gaps into fix plans, and ships when green: commits, archives the phase, ticks the roadmap, optional PR. *Go there when* every plan of the phase is `done`+`committed` — and again after any gap-fix loop.
+- **/skill:implement** — runs approved plans as background waves, one detached executor per plan in its own agent worktree, then merges every agent branch back into its target in plan order. *Go there when* plans are approved and not every plan has a `NN-YY-SUMMARY.md` with `status: complete` (or a recorded skip).
+- **/skill:review** — verifies coverage with a fresh-context verifier, walks gaps into fix plans, and ships when green: commits, ticks the roadmap, optional PR. *Go there when* every plan of the phase has a completed SUMMARY — and again after any gap-fix loop.
 
 ## On-ramps
 
@@ -29,7 +29,7 @@ Situations that drop you onto the flow mid-stream:
 
 - The filesystem is the state: markers in `<state>/runs/`, files in `phases/<NN>-<slug>/`, checkboxes in ROADMAP.md. That is the entire loop position.
 - A fresh session loses nothing — every skill re-reads state from disk before acting; none of them remember.
-- Heavy work (research, execution, verification) runs detached and flips its own markers, so session age barely matters. To stop a run, kill the PID recorded in its `.running` marker; a stale `.running` means aborted, and the next skill visit offers cleanup.
+- Heavy work (research, verification) runs detached and flips its own markers, so session age barely matters; execution runs detached in per-plan worktrees and leaves SUMMARYs as its record. To stop a marker-based run, kill the PID recorded in its `.running` marker; a stale `.running` means aborted, and the next skill visit offers cleanup.
 
 ## Adding a skill
 

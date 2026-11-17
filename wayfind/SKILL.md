@@ -34,7 +34,7 @@ Gather, in order — everything is a fact off the disk:
 1. **Runs**: `bash <this skill's folder>/scripts/dispatch.sh --status` — one line per marker: id, state, PID, alive/dead, log size.
 2. **STATE.md** — `next_action`, `progress`, the phase named in the body (advisory only, rule 2).
 3. **ROADMAP.md** — `## Next up`, the phase checkboxes under `## Phases`, the target phase's `Plans:` list.
-4. **Live phases** — directories under `<state>/phases/`, excluding `_`-prefixed entries (`_templates/`, `_archive/`).
+4. **Live phases** — directories under `<state>/phases/` (every entry is a phase folder; the schema keeps no other kind).
 
 **Current phase** (same rule `define` uses): the `## Next up` phase if it is unchecked and its folder is live; else the first unchecked phase with a live folder; else none.
 
@@ -47,8 +47,7 @@ Gather, in order — everything is a fact off the disk:
 
 **Runs line** — translate each marker (current phase's ids first, then any others):
 
-- `.done` with a `committed` line → `<id> done+committed`
-- `.done` without one → `<id> done (awaiting commit replay)`
+- `.done` → `<id> done`
 - `.running`, live PID → `<id> running (PID <n>, alive)`
 - `.running`, dead PID → `<id> running (PID <n>, DEAD — stale marker)`
 - `.failed` → `<id> failed — <the one-line reason appended to the marker>`
@@ -57,7 +56,7 @@ Gather, in order — everything is a fact off the disk:
 
 ```
 Phase 02-auth: CONTEXT ✓ · RESEARCH ✓ · 02-01-PLAN ✓ · 02-01-SUMMARY ✓ · VERIFICATION ✗
-Runs: 02-01 running (PID 999999, DEAD — stale marker) · 02-verify failed — verifier missing input · 01-01 done+committed
+Runs: 02-verify running (PID 999999, DEAD — stale marker) · 02-research failed — prompt missing input · 01-verify done
 Roadmap: next up 02-auth · 1 live phase · 1 shipped
 ```
 
@@ -82,11 +81,11 @@ Roadmap: next up 02-auth · 1 live phase · 1 shipped
    - no live phase, unchecked phase exists → `/skill:define` — the phase exists only on the roadmap
    - current phase has `CONTEXT ✗` → `/skill:define` — no decisions on file yet (or the folder isn't even scaffolded)
    - plans instantiated for none of the `Plans:` ids → `/skill:define` — planning never finished
-   - any plan's run is not `done+committed` (no marker, `.running`, `.done` without `committed`) → `/skill:implement` — waves, cleanup, and commit replay live there
-   - all plans `done+committed`, `VERIFICATION ✗` → `/skill:review` — verify and ship
+   - any plan of the current phase lacks a `NN-YY-SUMMARY.md` with `status: complete` (or a skip record in CONTEXT.md's `## Skipped plans`) → `/skill:implement` — waves, cleanup, and merge-back live there
+   - every plan has a completed SUMMARY, `VERIFICATION ✗` → `/skill:review` — verify and ship
    - `VERIFICATION ✓` but the phase is still live → `/skill:review` — a re-entry: finish the readout/ship sequence
 
-Write the ladder's line as the diagnosis, e.g. `01-02 is still running — walk away or check back; when it's done+committed, /skill:review`.
+Write the ladder's line as the diagnosis, e.g. `01-02 has no completed SUMMARY yet — walk away or check back; when every plan has one, /skill:review`.
 
 ## Step 2 — ROUTES (from MAP.md)
 
