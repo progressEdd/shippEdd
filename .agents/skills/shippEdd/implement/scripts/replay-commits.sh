@@ -7,6 +7,11 @@
 # (NN-YY.done) are replayed; per-task markers (NN-YY-TT.done) are sequenced by
 # the implement gate, not here.
 #
+# Worktree routing: a spec whose paths all share a 02-worktrees/<name>/ prefix
+# (that dir being a git worktree) commits inside that worktree's own git —
+# the root checkout ignores 02-worktrees/* by convention; canonical work lands
+# on the worktree's branch. Mixed/other paths commit in the root as before.
+#
 # Usage: replay-commits.sh     (no args — scans <state>/runs/*.done)
 # TSV line: <commit message><TAB><path1,path2,...>  — message single-line, no
 # tabs; paths repo-relative, comma-separated; blank/pathless lines are skipped.
@@ -37,18 +42,34 @@ for marker in "$runs"/[0-9][0-9]-[0-9][0-9].done; do  # plan markers only — NN
       msgs+=("$msg"); specs+=("$paths")
     done < "$tsv"
   fi
+  last="$(git rev-parse --short HEAD)"                        # newest commit sha for the marker
   for i in "${!msgs[@]}"; do                                  # validate all, then commit
     IFS=',' read -r -a files <<< "${specs[$i]}"
-    git add -- "${files[@]}"
-    if git diff --cached --quiet; then
+    gwd="$root"; pfx=""                                      # route: worktree prefix -> its own git
+    case "${files[0]}" in
+      02-worktrees/*)
+        wt="${files[0]#02-worktrees/}"; wt="${wt%%/*}"
+        if [ -n "$wt" ] && [ -e "$root/02-worktrees/$wt/.git" ]; then
+          shared=1
+          for f in "${files[@]}"; do
+            case "$f" in "02-worktrees/$wt/"*) ;; *) shared=0; break ;; esac
+          done
+          if [ "$shared" -eq 1 ]; then gwd="$root/02-worktrees/$wt"; pfx="02-worktrees/$wt/"; fi
+        fi
+        ;;
+    esac
+    rfiles=(); for f in "${files[@]}"; do rfiles+=("${f#"$pfx"}"); done
+    git -C "$gwd" add -- "${rfiles[@]}"
+    if git -C "$gwd" diff --cached --quiet; then
       echo "skip: $id nothing new to commit: ${msgs[$i]}" >&2 # partial-replay recovery
     else
-      git commit -q -m "${msgs[$i]}"
-      echo "committed $id: $(git rev-parse --short HEAD) ${msgs[$i]}"
+      git -C "$gwd" commit -q -m "${msgs[$i]}"
+      last="$(git -C "$gwd" rev-parse --short HEAD)"
+      echo "committed $id: $last ${msgs[$i]}"
     fi
   done
   if [ "${#msgs[@]}" -gt 0 ]; then
-    echo "committed $(git rev-parse --short HEAD)" >> "$marker"
+    echo "committed $last" >> "$marker"
   else
     echo "committed none" >> "$marker"                        # done, no spec to replay
   fi
