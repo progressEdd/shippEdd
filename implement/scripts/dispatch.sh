@@ -32,8 +32,8 @@ if [ "${1:-}" = "--status" ]; then
     alive=dead
     if [ -n "$pid" ] && kill -0 "$pid" 2>/dev/null; then alive=alive; fi
     size=0
-    [ -f "$runs/$id.log" ] && size="$(wc -c < "$runs/$id.log" | tr -d '[:space:]')"
-    printf '%s  %s  pid %s %s  log %s bytes\n' "$id" "${marker##*.}" "${pid:-?}" "$alive" "$size"
+    [ -f "${runs}/$id.log" ] && size="$(wc -c < "${runs}/$id.log" | tr -d '[:space:]')"
+    printf '%s  %s  pid %s %s  log %s bytes  %s\n' "$id" "${marker##*.}" "${pid:-?}" "$alive" "$size" "${runs#"$root"/}/$id.log"
   done
   exit 0
 fi
@@ -55,13 +55,13 @@ done
 mkdir -p "$runs"
 case "$prompt" in /*) ;; *) prompt="$PWD/$prompt" ;; esac
 if [ "$force" -eq 0 ] && { [ -e "$runs/$id.running" ] || [ -e "$runs/$id.done" ] || [ -e "$runs/$id.failed" ]; }; then
-  echo "refused: run '$id' already has a marker in $runs (use --force to redispatch)" >&2; exit 1
+  echo "refused: run '$id' already has a marker in ${runs#"$root"/} (use --force to redispatch)" >&2; exit 1
 fi
 [ -f "$prompt" ] || { echo "no such prompt file: $prompt" >&2; exit 1; }
 if [ "$force" -eq 1 ]; then rm -f "$runs/$id.running" "$runs/$id.done" "$runs/$id.failed"; fi
 
 cd "$root"
-nohup pi --print ${model[@]+"${model[@]}"} < "$prompt" > "$runs/$id.log" 2>&1 &
+nohup pi --print ${model[@]+"${model[@]}"} < "$prompt" > "${runs}/$id.log" 2>&1 &
 pid=$!
 printf '%s\n' "$pid" > "$runs/$id.running"
-printf 'dispatched %s (PID %s) → %s\n' "$id" "$pid" "$runs/$id.log"
+printf 'dispatched %s (PID %s) → %s\n' "$id" "$pid" "${runs#"$root"/}/$id.log"
