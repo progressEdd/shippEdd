@@ -8,7 +8,7 @@ disable-model-invocation: true
 
 You are the orchestrator for the discuss→plan half of the phase loop. You interview the user, dispatch research and planning to fresh-context subagents, and keep this session lean: decisions enter your context, research and implementation detail do not. You never advance past approval on your own — the user approves the plans, then you name the next command and stop.
 
-`<state>` is the workflow state dir resolved in step 0; all other paths are relative to it or to the repo root. This skill is self-contained: its scripts (`scripts/state-dir.sh`, `scripts/dispatch.sh`) live in this folder, and phase templates come from the state dir's own stash (step 2).
+`<state>` is the workflow state dir resolved in step 0; all other paths are relative to it or to the repo root. This skill is self-contained: its scripts (`scripts/state-dir.sh`, `scripts/dispatch.sh`) live in this folder, and phase templates come from the skill's own `bootstrap/templates/` (step 2).
 
 ## Ground rules
 
@@ -73,7 +73,7 @@ cp <templates>/NN-YY-SUMMARY.md  <state>/phases/<NN>-<slug>/<NN>-YY-SUMMARY.md
 cp <templates>/VERIFICATION.md   <state>/phases/<NN>-<slug>/VERIFICATION.md
 ```
 
-Template source, in order: `<state>/phases/_templates/` (the stash bootstrap wrote); if missing, `.agents/skills/shippEdd/bootstrap/templates/` (repo-relative); if both are missing, stop and recommend rerunning `/skill:bootstrap` (it repairs the skeleton without touching existing content).
+Template source: `.agents/skills/shippEdd/bootstrap/templates/` (repo-relative — the skill's own templates; there is no state-dir stash). If it is missing, stop and recommend rerunning `/skill:bootstrap` (it repairs the skill folder's templates without touching existing content).
 
 Replace every `NN` / `<NN-slug>` placeholder in the copied names and contents with the phase's number and slug. `YY` placeholders are kept: `NN-YY-PLAN.md` and `NN-YY-SUMMARY.md` are the on-deck templates the planner and the executors instantiate — a filename still containing `YY` is a template, never an artifact. Files that already exist in the phase folder are left untouched (repair, never overwrite).
 
@@ -235,7 +235,7 @@ Rules: write plan files only — never STATE.md or ROADMAP.md. Follow your perso
 
 What comes back, and what to check:
 
-- One `<NN>-YY-PLAN.md` per coherent unit of work — vertical slices preferred (one feature cut through all its layers beats a horizontal layer-plan); 2–3 tasks per plan; multiple plans (`01-01`, `01-02`, …) with `wave` + `depends_on` computed across them.
+- One `<NN>-YY-PLAN.md` per coherent unit of work — vertical slices preferred (one feature cut through all its layers beats a horizontal layer-plan); 2–3 tasks per plan; multiple plans (`01-01`, `01-02`, …) with `wave` + `depends_on` + `target` computed across them (`target` = the branch the plan's executor forks from and merges back into; `master` unless the phase says otherwise).
 - Task blocks with concrete identifiers — exact files, actions, runnable verify commands. Vagueness goes back for a rewrite, not a patch from you.
 
 If the planner reports `## PLAN BLOCKED` (missing decisions, contradictory inputs), put each gap to the user in the question format, record answers in CONTEXT.md, and redispatch. Never edit plan substance yourself — edits go back to the planner.
