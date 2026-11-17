@@ -1,13 +1,13 @@
 ---
-next_action: /skill:define
-progress: shipped
+next_action: /skill:review
+progress: executed
 ---
 
 # State
 
-**Phase:** 01 multi-harness-persona-wiring
-**Status:** shipped — PASSED · 5/5 requirements · 14/14 decisions · 4/4 verifies · 0 gaps
-**Next:** roadmap complete — mint phase 02 with `/skill:define`
+**Phase:** 02 execution-record-rework
+**Status:** executed — 6 plans across 2 waves landed old-style (direct commits, no merge bubbles); awaiting review
+**Next:** `/skill:review` verifies coverage and ships (also consumes the transitional `runs/` dir)
 
 <!--
 STATE.md is the router surface. The frontmatter (next_action, progress) is the
