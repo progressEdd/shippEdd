@@ -1,13 +1,13 @@
 ---
-next_action: /skill:define
-progress: shipped
+next_action: /skill:implement
+progress: planned
 ---
 
 # State
 
-**Phase:** 02 execution-record-rework
-**Status:** shipped — VERIFICATION PASSED (requirements 10/10 · decisions 10/10 · verifies 15/15 · gaps none)
-**Next:** roadmap complete — mint a new phase via `/skill:define` or bank ideas via `/skill:todo`
+**Phase:** 03 skill-polish-sweep
+**Status:** executing — wave 1 landed: 03-01 merged into `master`
+**Next:** wave 2 in flight (03-02 → `master`); re-run `/skill:implement` to gate it
 
 <!--
 STATE.md is the router surface. The frontmatter (next_action, progress) is the

@@ -6,13 +6,13 @@
 
 ## Next up
 
-**none — roadmap complete**
+**Phase 03: skill-polish-sweep**
 
 ## Phases
 
 - [x] **Phase 01: multi-harness-persona-wiring** — bootstrap works on eight harnesses, not just pi
 - [x] **Phase 02: execution-record-rework** — implement records live in SUMMARY frontmatter, not the runs dir; executors own git in per-plan worktrees
-- [ ] **Phase 03: <slug>** — <one-line description>
+- [ ] **Phase 03: skill-polish-sweep** — the three banked todos land: clear-context guidance at phase-boundary handoffs, repo-relative dispatch receipts, and the PENDING-TODO template sourced solely from the skill
 
 ## Phase details
 
@@ -50,6 +50,24 @@ Plans:
 - [x] 02-04: retarget define/review/todo/wayfind — SUMMARY-based gates and evidence, no _templates/_archive/runs conventions
 - [x] 02-05: flatten live .planning/ — _templates deleted, phase 01 restored flat, legacy runs cleared
 - [x] 02-06: vendored refresh — interim deltas committed, reworked master squash-merged, byte-parity verified
+
+### Phase 03: skill-polish-sweep
+
+- **Goal:** the three pending todos (03 clear-context-after-phase, 04 relative-dispatch-paths, 05 todo-template-cleanup) land: skills tell the user to clear context at phase boundaries, dispatch receipts print repo-relative paths, and the PENDING-TODO template lives only in the skill's `bootstrap/templates/todos/`
+- **Depends on:** Phase 02 (its skill conventions and vendored-refresh flow)
+- **Requirements:** POL-01, POL-02, POL-03, POL-04, POL-05 (minted in REQUIREMENTS.md v3)
+- **Success criteria** (what must be TRUE) — seeded from the todos, refined by grilling:
+  1. Every phase-boundary handoff (review's ship step, define's step 8, implement's complete step) names the next command **and** says to run it in a fresh/cleared session; the README explains why that's safe
+  2. `dispatch.sh --status` and every dispatch receipt line print repo-relative paths (`.planning/runs/<id>.log`), not machine-absolute ones, across all skills' dispatchers that share the pattern
+  3. `.planning/todos/` holds no `PENDING-TODO.md`; todo mode-A sources the template solely from `.agents/skills/shippEdd/bootstrap/templates/todos/` with the bootstrap-repair guard; bootstrap's skeleton step no longer writes the state copy; README/docs mentions swept
+  4. Phase scaffolding is lazy: define creates only the phase folder + `NN-CONTEXT.md`; every other phase artifact (RESEARCH, PLAN, SUMMARY, VERIFICATION) is written on demand from the skill's `bootstrap/templates/` by the agent that produces it, with no placeholder copies or template-deletion logic
+
+Plans:
+- [x] 03-01: clear-context clause at all six in-session handoffs + README why-safe note (POL-01)
+- [ ] 03-02: repo-relative paths in dispatch receipts and --status across all four dispatchers (POL-02)
+- [ ] 03-03: PENDING-TODO template sourced solely from the skill — canonical half (POL-03)
+- [ ] 03-04: state-dir sweep + vendored refresh with byte-parity verification (POL-03 state half, POL-04 — refresh carries POL-01..05; runs wave 5, after 03-05)
+- [ ] 03-05: lazy phase scaffolding — define scaffolds folder + CONTEXT.md only; artifacts written on demand from skill templates (POL-05; runs wave 4)
 
 ## Progress
 
