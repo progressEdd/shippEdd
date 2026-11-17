@@ -6,8 +6,8 @@ progress: planned
 # State
 
 **Phase:** 03 skill-polish-sweep
-**Status:** executing — wave 3 landed: 03-01, 03-02, 03-03 merged into `master`
-**Next:** wave 4 (03-05 → `master`); re-run `/skill:implement` to gate it
+**Status:** executing — wave 4 landed: 03-05 merged into `master` (waves 1–4 done)
+**Next:** wave 5 (03-04 → `progressEdd`); re-run `/skill:implement` to gate it
 
 <!--
 STATE.md is the router surface. The frontmatter (next_action, progress) is the

@@ -67,7 +67,7 @@ Plans:
 - [x] 03-02: repo-relative paths in dispatch receipts and --status across all four dispatchers (POL-02)
 - [x] 03-03: PENDING-TODO template sourced solely from the skill — canonical half (POL-03)
 - [ ] 03-04: state-dir sweep + vendored refresh with byte-parity verification (POL-03 state half, POL-04 — refresh carries POL-01..05; runs wave 5, after 03-05)
-- [ ] 03-05: lazy phase scaffolding — define scaffolds folder + CONTEXT.md only; artifacts written on demand from skill templates (POL-05; runs wave 4)
+- [x] 03-05: lazy phase scaffolding — define scaffolds folder + CONTEXT.md only; artifacts written on demand from skill templates (POL-05; runs wave 4)
 
 ## Progress
 
