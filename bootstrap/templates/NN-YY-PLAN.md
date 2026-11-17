@@ -11,11 +11,13 @@ depends_on: [<plan-ids this plan requires, e.g. "01-01", or [] >]
 
 <task>
 <name>Task 1: <action-oriented name></name>
-<files><files to create/modify, comma-separated></files>
+<files><files to create/modify, comma-separated</files>
 <action>
-<What to do, how to do it, and what to avoid — with concrete values: exact
-identifiers, parameters, paths, commands. Never "align X with Y" without the
-exact target state.>
+<What to do and how — shown as code wherever code is the instruction: the
+complete function/class/interface to add or the exact edit to make, config
+blocks with real values, the commands to run. Prose carries only what code
+cannot show — order, intent, pitfalls. Never describe a target state you can
+display; never "align X with Y" without the exact target.>
 </action>
 <verify><command or check that proves it worked></verify>
 <acceptance_criteria>
@@ -27,7 +29,7 @@ exact target state.>
 <task>
 <name>Task 2: <action-oriented name></name>
 <files><files></files>
-<action><Specific implementation with concrete values.></action>
+<action><Code-first: the implementation, config block, or exact edit; prose only for what code cannot show.></action>
 <verify><Command or check></verify>
 <acceptance_criteria>
 - <Grep-verifiable condition>
@@ -45,5 +47,9 @@ Before declaring this plan complete:
 Waves run in parallel within a number, sequentially across numbers; depends_on
 lists the plan IDs that must finish first. Both are precomputed at plan time —
 /skill:implement reads them from this frontmatter, no runtime analysis.
-On completion the executor writes NN-YY-SUMMARY.md next to this file.
+Executors are fed one task block at a time (/skill:implement slices this file
+per task), so every block must stand alone: its code exact, its context inside
+its own <action>.
+On completion the final task's executor writes NN-YY-SUMMARY.md next to this
+file.
 -->
