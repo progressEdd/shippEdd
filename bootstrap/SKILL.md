@@ -1,6 +1,6 @@
 ---
 name: bootstrap
-description: One-time setup wizard for shippEdd, the phase-loop workflow (plan → execute → verify → ship) — detects the repo, chooses the workflow state dir, writes the planning skeleton, wires the subagent personas into .pi/agents/, configures toggles and model tiers, and wires AGENTS.md. Run /skill:bootstrap once per repository.
+description: One-time setup wizard for shippEdd, the phase-loop workflow (plan → execute → verify → ship) — detects the repo, chooses the workflow state dir, writes the planning skeleton, asks which agent harness you run (pi, opencode, hermes, cursor, codex, claude, gemini, github copilot, or a custom directory) and wires the subagent personas into that harness's agent directory via scripts/wire-agents.sh, configures toggles and model tiers, and wires AGENTS.md. Run /skill:bootstrap once per repository.
 disable-model-invocation: true
 ---
 
@@ -12,7 +12,7 @@ All paths below are relative to this skill's folder (`scripts/`, `templates/`, `
 
 ## Ground rules
 
-1. **Detect, never ask** — anything readable from the repo is a fact. Only genuinely undetectable preferences become questions.
+1. **Detect, never ask** — anything readable from the repo is a fact. Only genuinely undetectable preferences become questions. (One exception: the harness question in step 3b is asked every run — wired-dir evidence may set its recommendation, never replace it.)
 2. **One question at a time**, grilling-style but short. Every question uses exactly this format:
 
    ```
@@ -40,7 +40,7 @@ Gather all of this quietly before asking anything:
 - **Tracked files**: `git ls-files | wc -l` and a sample — enough to judge greenfield (empty/skeleton repo) vs brownfield (real code tracked)
 - **Existing workflow state**: dirs containing both `STATE.md` and `ROADMAP.md` — probe `.planning/` and `.gsd/` directly, plus `git ls-files | grep -E '(STATE|ROADMAP)\.md$'` for any git-tracked candidates
 - **`.pi/planning.json`**: exists? what `state_dir` / `models` keys does it carry?
-- **`.pi/agents/`**: which of `planner` / `researcher` / `executor` / `verifier` exist; diff any that exist against `personas/<name>.md` in this skill folder (no `personas/` folder = dev install — see step 3b)
+- **Wired agent dirs**: for each of `.pi/agents/`, `.opencode/agents/`, `.cursor/agents/`, `.codex/agents/`, `.claude/agents/`, `.gemini/agents/`, `.github/agents/` — note which of the four personas (`planner` / `researcher` / `executor` / `verifier`, as `.md` or `.toml`) already exist there. This evidence only sets the ➡️ recommendation on step 3b's harness question — the question itself is asked every run. (No `personas/` folder in this skill = dev install — see step 3b.)
 - **`$PLANNING_DIR`**: set in the environment?
 - **GitHub**: `command -v gh` and `gh auth status`; `git remote` (only if git detected)
 - **`AGENTS.md`**: exists? already contains a `## Workflow` heading?
@@ -103,13 +103,47 @@ Repair semantics: a destination file that already exists is **left untouched**; 
 
 ## Step 3b — PERSONAS (repo wiring, written after confirmation)
 
-The four subagent personas — planner, researcher, executor, verifier — power every skill that dispatches subagents. Pi discovers skills from `.agents/skills/` but not `.pi/agents/` content, so the personas travel inside this skill (`personas/*.md`) and bootstrap wires them into the repo — one folder-copy is then enough to adopt the whole harness. Using the diffs already gathered in step 1:
+The four subagent personas — planner, researcher, executor, verifier — power every skill that dispatches subagents. Skills live in the harness-shared `.agents/skills/` convention, so the personas travel inside this skill (`personas/*.md` — the canonical copy; wiring only ever copies/converts outward) and bootstrap wires them into your harness's own agent directory. First, ask which harness — every run, never inferred from detection (step 1's wired-dir evidence only sets the recommendation):
 
-- **Missing from `.pi/agents/`** → copy `personas/<name>.md` in.
-- **Identical** → nothing to do.
-- **Different** → repair semantics: show the diff, offer replace-or-keep. Never silently overwrite.
+```
+❓ Which agent harness is this repo wired for?
+  ➡️ 1. pi             (.pi/agents/)
+    2. opencode       (.opencode/agents/)
+    3. hermes         (no agents dir — profiles instead; report and skip)
+    4. cursor         (.cursor/agents/)
+    5. codex          (.codex/agents/, TOML)
+    6. claude         (.claude/agents/)
+    7. gemini         (.gemini/agents/)
+    8. github copilot (.github/agents/)
+    9. custom         (name any agent directory)
+```
 
-No question is asked — this is detection plus action, and every write appears in the confirmation gate. If this skill folder has no `personas/` (a hand-rolled install), report "personas already wired" and skip.
+➡️ marks the harness whose dir showed wired personas in step 1; on a fresh repo it marks pi. Users may answer by number or free text (map free text to the closest option).
+
+**Named harnesses (options 1–8):** `scripts/wire-agents.sh` does the wiring — pass the harness as one token (`pi`, `opencode`, `hermes`, `cursor`, `codex`, `claude`, `gemini`, `github-copilot`; option 8's "github copilot" becomes `github-copilot`). Run `scripts/wire-agents.sh <harness> --dry-run [--diff]` and read its output:
+
+- It prints the target dir, one line per persona — `create` (missing, with its conversion: `md + mode: subagent` for opencode, `md → TOML` for codex), `skip` (identical), or `differs` (kept) — and the receipt `wire   personas → <dir> (4 agents)` (`— dir created in project directory` appended when the agents dir is absent).
+- Add `--diff` when any persona shows `differs`: the script prints a unified diff (canonical-converted vs the installed file). Show each diff and ask replace-or-keep, one file at a time:
+  ```
+  ❓ `<target path>` differs from the canonical persona (diff above) — replace it?
+    ➡️ 1. keep mine
+      2. replace with the canonical persona
+  ```
+- **hermes** needs no follow-up: the script reports and skips — no writes, no further questions. Relay its note verbatim (it also lands in the gate): `skip    personas — hermes has no agents dir; subagents run as profiles in ~/.hermes/config.yaml`.
+- After the gate approves, run `scripts/wire-agents.sh <harness>` for real, adding `--replace <persona>` for each differing persona the user chose to replace. The script creates the agents dir if absent, skips identical files (compared as converted output), and never touches an un-replaced file.
+
+**Custom (option 9):** the script stays deterministic — the format inspection is yours (the LLM). Ask for the directory, then:
+
+1. Read the named directory: list any existing agent-definition files and read one or two for format (plain md frontmatter? a `mode:` field? TOML? something else?).
+2. If the directory is empty or new, check the harness's documentation for its subagent format.
+3. Map the evidence to a mode and dry-run it, then continue with the named-harness flow above (diff / replace-or-keep, gate, real run):
+   - plain md with frontmatter → `scripts/wire-agents.sh custom <dir> --mode copy --dry-run [--diff]`
+   - md needing a subagent flag → `--mode inject`
+   - TOML → `--mode toml`
+   - no evidence at all → plain pi-format md copy is the fallback: `custom <dir> --dry-run` (no `--mode`)
+4. Evidence shows a format none of copy/inject/toml can express (e.g. JSON definitions): convert the four personas yourself into a scratch dir mirroring the discovered format, then run `scripts/wire-agents.sh custom <dir> --mode copy --source <scratch-dir> --dry-run [--diff]` — the same repair semantics, applied to your converted files. Say in the gate that the conversion was hand-derived from examples/docs.
+
+If this skill folder has no `personas/` (a hand-rolled install), report "personas already wired" and skip.
 
 ## Step 4 — TOGGLES
 
@@ -170,8 +204,11 @@ I will create/modify:
     create   <each new file path>
     repair   <each missing template in an existing skeleton — existing files untouched>
   PERSONAS
-    create   .pi/agents/<name>.md   (each missing persona) — or: none, all wired
-    replace  .pi/agents/<name>.md   (only a differing persona the user chose to replace)
+    wire     personas → <dir> (4 agents)   — append "— dir created in project directory" when the agents dir is absent
+      create   <path>   (each missing persona, with its conversion — or: none, all wired)
+      replace  <path>   (each differing persona the user chose to replace)
+      keep     <path>   (each differing persona the user kept)
+    skip     personas — hermes has no agents dir; subagents run as profiles in ~/.hermes/config.yaml   (hermes only — instead of the wire line)
   CONFIG
     write    .pi/planning.json   (only the non-default keys chosen) — or: none, all defaults
     write    <state>/config.json (toggles [+ github])
@@ -218,7 +255,7 @@ If `.pi/planning.json` already exists, merge: update only the keys decided in th
 
 If state markers already exist when you reach step 1, skip the fresh wizard:
 
-1. Report what was found: state dir, a persona check (missing or differing personas, per step 3b), and a skeleton check listing any missing template files.
+1. Report what was found: state dir, the harness question from step 3b (asked again every run — recommend the harness whose dir shows wired personas), a persona check via `scripts/wire-agents.sh <harness> --dry-run` (missing or differing personas), and a skeleton check listing any missing template files.
 2. ```
    ❓ Repair the skeleton and wire missing personas?
      ➡️ 1. yes — create only the missing files (a differing persona gets a diff and a replace-or-keep choice first)
