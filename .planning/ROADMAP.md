@@ -6,12 +6,12 @@
 
 ## Next up
 
-**Phase 02: execution-record-rework** — implement execution writes no per-run files into the repo; SUMMARY frontmatter is the execution record; executors own git in per-plan worktrees with orchestrator-owned merge-back
+**none — roadmap complete**
 
 ## Phases
 
 - [x] **Phase 01: multi-harness-persona-wiring** — bootstrap works on eight harnesses, not just pi
-- [ ] **Phase 02: execution-record-rework** — implement records live in SUMMARY frontmatter, not the runs dir; executors own git in per-plan worktrees
+- [x] **Phase 02: execution-record-rework** — implement records live in SUMMARY frontmatter, not the runs dir; executors own git in per-plan worktrees
 - [ ] **Phase 03: <slug>** — <one-line description>
 
 ## Phase details
@@ -56,7 +56,7 @@ Plans:
 | Phase | Plans complete | Status | Completed |
 |-------|----------------|--------|-----------|
 | 01 `multi-harness-persona-wiring` | 2/2 | Shipped | 2026-11-17 |
-| 02 `execution-record-rework` | 0/6 | Not started | — |
+| 02 `execution-record-rework` | 6/6 | Shipped | 2026-11-17 |
 
 <!--
 Conventions:
