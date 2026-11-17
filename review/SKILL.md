@@ -44,7 +44,7 @@ Read (never ask for) the state:
 
 - `<state>/STATE.md` — where the loop stands; its body names the current phase (implement set it)
 - `<state>/ROADMAP.md` — this phase's entry, its `Plans:` list, what comes next
-- `<state>/phases/<NN>-<slug>/` — the phase folder: enumerate the `NN-*-PLAN.md` files. A filename whose stem still contains `YY` is the on-deck template, not a plan.
+- `<state>/phases/<NN>-<slug>/` — the phase folder: enumerate the `NN-*-PLAN.md` files. Every one is a real plan — placeholder copies are never scaffolded into a phase dir.
 - `<state>/config.json` — `github.mirror_issues` (absent = off)
 
 **Target phase**: the phase named in STATE.md's body; if STATE.md and the phase dir disagree, the dir wins. Shipped-ness derives from state, never a directory location: ROADMAP's phase checkbox ticked or STATE.md's `progress: shipped` means it shipped — recommend `/skill:define` (or `/skill:todo` if the roadmap is complete) and stop.
@@ -55,13 +55,15 @@ Read (never ask for) the state:
 
 Then stop.
 
-**Re-verify detection**: if the phase's `VERIFICATION.md` is a filled report (a real verdict line, no `<…>` placeholders — `define` leaves the raw template there), this is a re-entry after a gap loop; note it — the next verify run takes a suffixed id (step 2).
+**Re-verify detection**: if the phase's `VERIFICATION.md` is a filled report (a real verdict line, no `<…>` placeholders — the verifier creates the file on demand, so presence means a prior round; only a legacy phase minted before lazy scaffolding can carry a raw copy), this is a re-entry after a gap loop; note it — the next verify run takes a suffixed id (step 2).
 
 Report a two-line summary (phase, plans with completed SUMMARYs, prior verification if any), then dispatch.
 
 ## Step 2 — DISPATCH the verifier (background)
 
 **Run id**: `<NN>-verify` if no `<NN>-verify*` marker exists in `<state>/runs/`; otherwise `<NN>-verify<k>` for the smallest `k ≥ 2` with no marker (first re-verify is `NN-verify2`, the next `NN-verify3`, …). The dispatcher's collision guard refuses duplicate ids — never `--force` over an existing verification; `--force` clears markers and is only ever for re-running a `.failed` verify of the same id (step 3).
+
+Template source for the artifact: `.agents/skills/shippEdd/bootstrap/templates/VERIFICATION.md` (repo-relative — the skill's own templates; there is no scaffolded copy). If it is missing, stop and recommend rerunning `/skill:bootstrap` (it repairs the skill folder's templates without touching existing content).
 
 Compose `<state>/runs/<id>.prompt.md` — a fully self-contained prompt (the detached run loads nothing else):
 
@@ -78,7 +80,7 @@ Inputs:
 - Roadmap: <state>/ROADMAP.md — this phase's entry (goal, requirements, success criteria)
 - Commits: the task-commit hashes recorded in each plan's `NN-YY-SUMMARY.md` — cross-check read-only with `git log --grep "<NN>-YY>:"` and the `merge(<NN>-YY>):` merge commits on each plan's target branch
 
-Artifact: write <state>/phases/<NN>-<slug>/VERIFICATION.md, replacing what's there, per your persona's report contract.
+Artifact: write <state>/phases/<NN>-<slug>/VERIFICATION.md from the skill's template `.agents/skills/shippEdd/bootstrap/templates/VERIFICATION.md` — create the file if it is absent, replace whatever a prior round left — per your persona's report contract.
 
 ## Completion contract
 1. Write the artifact named above, fully, per its template.
@@ -139,7 +141,7 @@ Find the newest verify run for the phase (highest id suffix) and gate on its mar
    - Gaps: <state>/phases/<NN>-<slug>/VERIFICATION.md — the `## Gaps found` section is your spec; every gap must be covered by exactly one fix plan (gaps sharing a root cause may share one)
    - Context: <state>/phases/<NN>-<slug>/<NN>-CONTEXT.md — decisions, locked
    - Pattern: the phase's existing <NN>-<YY>-PLAN.md files — match their task-block shape exactly
-   - Template: `.agents/skills/shippEdd/bootstrap/templates/NN-YY-PLAN.md`
+   - Template: `.agents/skills/shippEdd/bootstrap/templates/NN-0N-PLAN.md`
 
    Write one fix plan per gap: <NN>-FX1-PLAN.md, <NN>-FX2-PLAN.md, … continuing the numbering from any FX files already in the phase dir. Frontmatter: wave: <current max wave across the phase's plans> + 1, depends_on: [], target: <the affected plan's target branch>. Same task-block discipline as any plan: exact files, actions, runnable verify commands, acceptance criteria. Fix plans write files only — never STATE.md or ROADMAP.md.
    ```
