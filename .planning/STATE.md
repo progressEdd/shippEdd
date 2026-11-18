@@ -1,13 +1,13 @@
 ---
-next_action: /skill:review
-progress: executed
+next_action: /skill:implement
+progress: planned
 ---
 
 # State
 
 **Phase:** 05 dispatcher-consolidation
-**Status:** executed — 6 plans run sequentially, merged per target (master before 05-06; progressEdd at end); awaiting review
-**Next:** `/skill:review` in a fresh session — verify DISP-01…08 coverage against the six SUMMARYs
+**Status:** review: 1 gap found (DISP-01 partial — bootstrap/README.md straggler) — fix plans 05-FX1, 05-FX2 awaiting execution
+**Next:** `/skill:implement` in a fresh session — FX1 (master) merges master before FX2 (progressEdd refresh)
 
 <!--
 STATE.md is the router surface. The frontmatter (next_action, progress) is the
