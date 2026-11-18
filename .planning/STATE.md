@@ -1,13 +1,13 @@
 ---
-next_action: /skill:implement
-progress: planned
+next_action: /skill:review
+progress: executed
 ---
 
 # State
 
 **Phase:** 05 dispatcher-consolidation
-**Status:** planned — 6 plans in 4 waves, awaiting execution (approved 2026-11-17; phase 05 dogfoods PR-by-default)
-**Next:** `/skill:implement` in a fresh session — wave 1 opens with 05-01 (suite-root scripts home)
+**Status:** executed — 6 plans run sequentially, merged per target (master before 05-06; progressEdd at end); awaiting review
+**Next:** `/skill:review` in a fresh session — verify DISP-01…08 coverage against the six SUMMARYs
 
 <!--
 STATE.md is the router surface. The frontmatter (next_action, progress) is the

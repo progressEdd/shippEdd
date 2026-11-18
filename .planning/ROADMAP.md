@@ -107,12 +107,12 @@ Plans:
   7. Todo 08's SKILL.md example leak fixed on canonical master, riding the phase-end vendored refresh (squash-merge + byte-parity)
 
 Plans:
-- [ ] 05-01: suite-root `scripts/` home — runs-dir.sh placement resolver (frozen config contract), dispatch.sh + auto-selftest.sh moved, 8 per-skill copies deleted, implement machinery retargeted (DISP-01, DISP-04 layout)
-- [ ] 05-02: dispatch-plan branch mode + merge-back PR-by-default with receipt fallback; implement SKILL.md/README wording incl. todo 08 neutral example (DISP-04, DISP-05, DISP-07)
-- [ ] 05-03: define/review/wayfind/todo onto the shared dispatcher — run-dir prompt homes, products-first re-entry, review drops `rm -rf runs/` (DISP-02)
-- [ ] 05-04: bootstrap step 4b placement question — worktree benefits, porcelain prefill, worktree creation, disposition question (DISP-03)
-- [ ] 05-05: auto-selftest extended to 12 cases — migration, placement, branch fallback, PR receipt, fake-gh PR, deliberate failure (DISP-06)
-- [ ] 05-06: vendored refresh on progressEdd — squash-merge, straggler sweep, byte-parity, required selftest run (DISP-08)
+- [x] 05-01: suite-root `scripts/` home — runs-dir.sh placement resolver (frozen config contract), dispatch.sh + auto-selftest.sh moved, 8 per-skill copies deleted, implement machinery retargeted (DISP-01, DISP-04 layout)
+- [x] 05-02: dispatch-plan branch mode + merge-back PR-by-default with receipt fallback; implement SKILL.md/README wording incl. todo 08 neutral example (DISP-04, DISP-05, DISP-07)
+- [x] 05-03: define/review/wayfind/todo onto the shared dispatcher — run-dir prompt homes, products-first re-entry, review drops `rm -rf runs/` (DISP-02)
+- [x] 05-04: bootstrap step 4b placement question — worktree benefits, porcelain prefill, worktree creation, disposition question (DISP-03)
+- [x] 05-05: auto-selftest extended to 12 cases — migration, placement, branch fallback, PR receipt, fake-gh PR, deliberate failure (DISP-06)
+- [x] 05-06: vendored refresh on progressEdd — squash-merge, straggler sweep, byte-parity, required selftest run (DISP-08)
 
 ### Phase 06: github-mirror
 
