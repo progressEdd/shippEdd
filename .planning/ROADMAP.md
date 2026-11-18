@@ -6,14 +6,14 @@
 
 ## Next up
 
-**Phase 04: unattended-implement-loop**
+**none — roadmap complete**
 
 ## Phases
 
 - [x] **Phase 01: multi-harness-persona-wiring** — bootstrap works on eight harnesses, not just pi
 - [x] **Phase 02: execution-record-rework** — implement records live in SUMMARY frontmatter, not the runs dir; executors own git in per-plan worktrees
 - [x] **Phase 03: skill-polish-sweep** — the three banked todos land: clear-context guidance at phase-boundary handoffs, repo-relative dispatch receipts, and the PENDING-TODO template sourced solely from the skill
-- [ ] **Phase 04: unattended-implement-loop** — the two banked todos land: merge-back never halts on the branch delete (todo 06), and opt-in auto mode runs whole phases unattended (todo 07)
+- [x] **Phase 04: unattended-implement-loop** — the two banked todos land: merge-back never halts on the branch delete (todo 06), and opt-in auto mode runs whole phases unattended (todo 07)
 
 ## Phase details
 
@@ -87,7 +87,8 @@ Plans:
 - [x] 04-02: loop mechanics — sequential per-target dispatch-plan.sh (attempt budget, --fix-instructions), new watch-wave.sh, dispatch.sh test hook (AUTO-02/03/05/06)
 - [x] 04-03: per-target merge-back rework (bounded merge budget, idempotent) + auto-selftest.sh — 7-case simulation incl. deliberate failure (AUTO-01/04/05/07)
 - [x] 04-04: SKILL.md rewrite — auto default, `/skill:implement manual` opt-out, recovery protocol + dossier; README and template sweep (AUTO-02/03/04/05/06/08)
-- [x] 04-05: EXEC-06/07 revised-by annotations + vendored refresh with byte-parity — runs as the inaugural auto-mode live run (AUTO-05/07/08)
+- [x] 04-05: EXEC-06/07 revised-by annotations + vendored refresh with byte-parity — ran on the transitional per-plan machinery; the inaugural auto-mode live run landed as 04-FX1 (AUTO-05/07/08)
+- [x] 04-FX1: gap fix from verification run 04-verify — 04-05-SUMMARY corrected, REQUIREMENTS AUTO-07 amended, and this plan itself run end-to-end through the refreshed auto loop as the inaugural auto-mode live run (AUTO-07 layer 2)
 
 ## Progress
 
@@ -96,6 +97,7 @@ Plans:
 | 01 `multi-harness-persona-wiring` | 2/2 | Shipped | 2026-11-17 |
 | 02 `execution-record-rework` | 6/6 | Shipped | 2026-11-17 |
 | 03 `skill-polish-sweep` | 5/5 | Shipped | 2026-11-17 |
+| 04 `unattended-implement-loop` | 6/6 | Shipped | 2026-11-17 |
 
 <!--
 Conventions:
