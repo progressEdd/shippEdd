@@ -13,10 +13,13 @@
 # on a fresh agent-branch generation. Phase 05 adds (8) dispatcher migration
 # (shared dispatch, nothing under .planning/), (9) config-driven placement,
 # (10) no-worktrees branch fallback, (11) PR receipt fallback, (12) PR create
-# via fake gh (DISP-06). Prints one line per check; ends with
+# via fake gh (DISP-06). Phase 06 adds (13) mirror off + version-floor gate,
+# (14) fake-gh capture sweep (parent/sub-issues/tasklist/caches), (15) tasklist
+# flip + never-block, (16) guarded close + pr-body + merge-back PR-body
+# integration, (17) ship sweep (MIR-09). Prints one line per check; ends with
 # SELFTEST PASSED/FAILED. Touches nothing outside its own $TMPDIR sandbox.
 #
-# Usage: auto-selftest.sh   (run from anywhere; needs git + bash only)
+# Usage: auto-selftest.sh   (run from anywhere; needs git + bash + jq)
 set -uo pipefail
 
 here="$(cd "$(dirname "$0")" && pwd)"
@@ -362,6 +365,233 @@ if [ "$mbrc" -eq 0 ] && printf '%s' "$mb" | grep -qF 'PR https://github.com/exam
 else
   bad "PR flow wrong: rc=$mbrc out=$mb calls=$(cat "$tmp/gh-calls" 2>/dev/null)"
 fi
+
+echo "case 13 — mirror off + version floor (MIR-02)"
+G="$repo/.agents/skills/shippEdd/scripts/gh-mirror.sh"
+mkdir -p "$repo/.planning/phases/11-mir"
+printf '{\n  "disposition": "auto-merge"\n}\n' > "$repo/.planning/config.json"
+r="$( (cd "$repo" && bash "$G" .planning 11 mir ready) )"
+[ "$r" = off ] && ok "ready: off when github config absent" || bad "ready=$r (want off)"
+out="$( (cd "$repo" && bash "$G" .planning 11 mir capture 2>&1) )"; rc=$?
+[ $rc -eq 0 ] && printf '%s' "$out" | grep -qF 'mirror: off' \
+  && ok "capture with mirror off: exit 0, never-block note" || bad "off-capture rc=$rc out=$out"
+mkdir -p "$tmp/bin-low"
+printf '#!/usr/bin/env bash\ncase "$1" in --version) echo "gh version 2.60.0 (2026-01-01)";; *) exit 1;; esac\n' > "$tmp/bin-low/gh"
+chmod +x "$tmp/bin-low/gh"
+printf '{\n  "github": {"mirror": true, "repo": "o/r"}\n}\n' > "$repo/.planning/config.json"
+r="$( (cd "$repo" && PATH="$tmp/bin-low:$PATH" bash "$G" .planning 11 mir ready) )"
+printf '%s' "$r" | grep -qF 'VERSION 2.60.0 below floor 2.94.0' \
+  && ok "version gate: below-floor gh reported, never used" || bad "version ready=$r"
+out="$( (cd "$repo" && PATH="$tmp/bin-low:$PATH" bash "$G" .planning 11 mir capture 2>&1) )"; rc=$?
+[ $rc -eq 0 ] && printf '%s' "$out" | grep -qF 'below the sub-issue floor' \
+  && ok "below-floor capture: exit 0 with the upgrade receipt" || bad "gate rc=$rc out=$out"
+
+echo "case 14 — fake-gh capture sweep: parent, sub-issues, tasklist, caches (MIR-03)"
+cat > "$repo/.planning/phases/11-mir/11-CONTEXT.md" <<'EOF2'
+# Phase 11-mir Context
+
+**Gathered:** 2026-11-18 — via `/skill:define` grilling
+
+## Goal
+
+Prove the capture sweep offline.
+
+## Decisions
+
+| # | Question | Decision | Why |
+|---|-----------|----------|-----|
+| 1 | Mirror on? | yes | fixture |
+| 2 | Label? | shippedd | fixture |
+
+## Constraints
+
+- none
+
+## Open questions
+
+- none
+EOF2
+cat > "$repo/.planning/phases/11-mir/11-01-PLAN.md" <<'EOF2'
+---
+wave: 1
+depends_on: []
+target: prod
+---
+
+# Plan 11-01: fixture plan
+
+**Objective:** One task so the tasklist has a line.
+
+## Tasks
+
+<task>
+<name>Task 1: Do the thing</name>
+<files>some/file</files>
+<action>do it</action>
+<verify>true</verify>
+<acceptance_criteria>
+- done
+</acceptance_criteria>
+</task>
+EOF2
+mkdir -p "$tmp/bin-fake" "$tmp/fakegh"
+cat > "$tmp/bin-fake/gh" <<'EOF2'
+#!/usr/bin/env bash
+echo "gh $*" >> "$GH_CALLS"
+S="$FAKEGH"; mkdir -p "$S"
+case "$1" in
+  --version) echo "gh version 2.103.3 (2026-10-26)"; exit 0 ;;
+  auth) [ "$2" = token ] && { echo fake-token; exit 0; }; exit 0 ;;
+esac
+if [ "$1" = api ]; then
+  # deviation (06-05): apply the caller's --jq filter to the emitted JSON — real gh
+  # filters server-side; without it ensure_milestone/ship read a raw array as the
+  # number (the fidelity correction 06-01's summary said to seed here)
+  jqprog=""; a=("$@")
+  for ((i=2; i<${#a[@]}; i++)); do [ "${a[$i]}" = "--jq" ] && { jqprog="${a[$((i+1))]}"; break; }; done
+  emit() { if [ -n "$jqprog" ]; then printf '%s\n' "$1" | jq -r "$jqprog"; else printf '%s\n' "$1"; fi; }
+  case "$2" in
+    user) echo '{"login":"fake"}' ;;
+    repos/*/milestones)
+      if [ "${3:-}" = "-f" ]; then
+        printf '7\t%s\n' "${4#title=}" >> "$S/milestones"; emit '{"number":7}'
+      else
+        out="["; f1=1
+        while IFS=$'\t' read -r mn mt; do
+          [ "$f1" = 1 ] && f1=0 || out+=","
+          out+="{\"number\":$mn,\"title\":$(printf '%s' "$mt" | jq -Rn --arg t "$mt" '$t')}"
+        done < "$S/milestones" 2>/dev/null
+        emit "$out]"
+      fi ;;
+    repos/*/milestones/*) exit 0 ;;
+  esac
+  exit 0
+fi
+case "$1 $2" in
+  "label list")   [ -f "$S/label" ] && echo shippedd || : ;;
+  "label create") : > "$S/label" ;;
+  "issue list")
+    printf '['; first=1
+    for f in "$S"/issue-*; do
+      [ -f "$f" ] || continue; n="${f##*issue-}"
+      [ "$first" = 1 ] && first=0 || printf ','
+      printf '{"number":%s,"title":%s}' "$n" "$(head -n1 "$f" | jq -Rn --arg t "$(head -n1 "$f")" '$t')"
+    done
+    printf ']\n' ;;
+  "issue create")
+    title= body= parent=
+    while [ $# -gt 0 ]; do case "$1" in
+      --title) title="$2"; shift 2 ;; --body-file) body="$2"; shift 2 ;;
+      --parent) parent="$2"; shift 2 ;; *) shift ;;
+    esac; done
+    n="$(cat "$S/next" 2>/dev/null || echo 41)"; echo $((n+1)) > "$S/next"
+    printf '%s\nopen\n%s\n' "$title" "$parent" > "$S/issue-$n"; cp "$body" "$S/body-$n.md"
+    echo "https://github.com/o/r/issues/$n" ;;
+  "issue view")
+    n="$3"; shift 3; what=""; jqprog=""
+    while [ $# -gt 0 ]; do case "$1" in
+      --json) what="$2"; shift 2 ;; --jq|-q) jqprog="$2"; shift 2 ;; *) shift ;;
+    esac; done
+    case "$what" in
+      body)  out="$(jq -Rs '{body:.}' < "$S/body-$n.md")" ;;
+      state) out="$(printf '{"state":"%s"}' "$(sed -n 2p "$S/issue-$n")")" ;;
+      subIssues)
+        subs="["; f1=1
+        for g in "$S"/issue-*; do
+          gnum="${g##*issue-}"; [ "$(sed -n 3p "$g")" = "$n" ] || continue
+          [ "$f1" = 1 ] && f1=0 || subs+=","; subs+="{\"number\":$gnum}"
+        done
+        subs+="]"; out="{\"subIssues\":$subs}" ;;
+      *) out="{}" ;;
+    esac
+    [ -n "$jqprog" ] && out="$(printf '%s' "$out" | jq -r "$jqprog")"
+    printf '%s\n' "$out" ;;
+  "issue edit")
+    n="$3"; shift 3
+    while [ $# -gt 0 ]; do case "$1" in
+      --body-file) cp "$2" "$S/body-$n.md"; shift 2 ;; *) shift ;;
+    esac; done ;;
+  "issue close")
+    n="$3"; sed -i "2s/.*/closed/" "$S/issue-$n"; exit 0 ;;
+  "pr view") exit 1 ;;
+  "pr create")
+    while [ $# -gt 0 ]; do case "$1" in
+      --body) printf '%s' "$2" > "$S/last-pr-body"; shift 2 ;; *) shift ;;
+    esac; done
+    echo "https://github.com/o/r/pull/99" ;;
+  *) exit 0 ;;
+esac
+exit 0
+EOF2
+chmod +x "$tmp/bin-fake/gh"
+fake() { ( cd "$repo" && PATH="$tmp/bin-fake:$PATH" FAKEGH="$tmp/fakegh" GH_CALLS="$tmp/gh-calls" bash "$G" "$@" ); }
+: > "$tmp/gh-calls"
+out="$(fake .planning 11 mir capture 2>&1)"; rc=$?
+printf '%s' "$out" | grep -qF 'created  parent #41' && ok "capture creates the parent (#41)" || bad "capture rc=$rc out=$out"
+grep -qF '[11] D1' "$tmp/gh-calls" && grep -qF -- '--parent 41' "$tmp/gh-calls" \
+  && ok "decision sub-issues created with --parent" || bad "decision create missing (calls: $(cat "$tmp/gh-calls"))"
+grep -qF '[11] plan 11-01' "$tmp/gh-calls" \
+  && grep -qF -- '- [ ] [11-01] T1 — Do the thing' "$tmp/fakegh/body-44.md" \
+  && ok "plan sub-issue carries the tasklist body" || bad "plan issue/tasklist wrong"
+grep -qF '**GitHub parent:** #41' "$repo/.planning/phases/11-mir/11-CONTEXT.md" \
+  && grep -qF '| #42 |' "$repo/.planning/phases/11-mir/11-CONTEXT.md" \
+  && grep -qF 'issue: "#44"' "$repo/.planning/phases/11-mir/11-01-PLAN.md" \
+  && ok "caches written back (parent line, Issue column, plan frontmatter)" || bad "cache write-back missing"
+grep -qF 'api repos/o/r/milestones -f title=Phase 11: mir' "$tmp/gh-calls" \
+  && grep -qF 'label create shippedd' "$tmp/gh-calls" \
+  && ok "milestone via gh api + label list-then-create" || bad "label/milestone calls wrong"
+: > "$tmp/gh-calls"
+out="$(fake .planning 11 mir capture 2>&1)"
+printf '%s' "$out" | grep -vqF 'created ' && ok "capture re-run is idempotent (no creations)" || bad "re-run created again: $out"
+
+echo "case 15 — tasklist flip, never-block (MIR-05)"
+fake .planning 11 mir progress 11-01 1 >/dev/null 2>&1
+grep -qF -- '- [x] [11-01] T1 — Do the thing' "$tmp/fakegh/body-44.md" \
+  && ok "progress flips the tasklist line" || bad "tasklist not flipped"
+mkdir -p "$tmp/bin-broken"; sed 's|"issue view")|"issue viewXX")|' "$tmp/bin-fake/gh" > "$tmp/bin-broken/gh"; chmod +x "$tmp/bin-broken/gh"
+( cd "$repo" && PATH="$tmp/bin-broken:$PATH" FAKEGH="$tmp/fakegh" GH_CALLS="$tmp/gh-calls" \
+    bash "$G" .planning 11 mir progress 11-01 2 >/dev/null 2>&1 ); rc=$?
+[ $rc -eq 0 ] && ok "progress with broken gh: exit 0 — the task is never blocked" || bad "progress rc=$rc on gh failure"
+
+echo "case 16 — guarded close + pr-body + merge-back PR-body integration (MIR-06)"
+: > "$tmp/gh-calls"
+fake .planning 11 mir close-plan prod >/dev/null 2>&1
+grep -qF 'issue close 44' "$tmp/gh-calls" && ok "close-plan closes the open plan issue" || bad "close-plan did not close"
+: > "$tmp/gh-calls"
+out="$(fake .planning 11 mir close-plan prod 2>&1)"; rc=$?
+[ $rc -eq 0 ] && printf '%s' "$out" | grep -qF 'already-closed 1' && ! grep -qF 'issue close 44' "$tmp/gh-calls" \
+  && ok "explicit-close guard: already-closed is skipped, no second close, exit 0" || bad "guard failed rc=$rc out=$out"
+# merge-back integration: capture 09-demo's plan issues, then a real merge-back PR must carry the keywords
+printf '{\n  "github": {"mirror": true, "repo": "o/r"}\n}\n' > "$repo/.planning/config.json"
+fake .planning 09 demo capture >/dev/null 2>&1      # parent #45 + plan issues #46..#52
+git worktree remove "$tmp/agent/09-demo/prod" 2>/dev/null || true
+git branch -D agent/09-demo/prod 2>/dev/null || true
+# deviation (06-05): case 12's push left the old generation's tip on the bare
+# remote — the re-forked branch would push non-fast-forward and hit the PR
+# fallback instead of pr create. Drop the stale remote ref first.
+git --git-dir="$tmp/remote.git" update-ref -d refs/heads/agent/09-demo/prod 2>/dev/null || true
+out="$(disp ok 09-07 prod --force)"; echo "$out"
+w="$(bash "$S/watch-wave.sh" .planning 09 demo 09-07 2>&1)"; wrc=$?
+[ "$wrc" = 0 ] && ok "09-07 re-executed (fresh prod generation)" || bad "watch 09-07 rc=$wrc"
+: > "$tmp/gh-calls"
+mb="$(PATH="$tmp/bin-fake:$PATH" FAKEGH="$tmp/fakegh" GH_CALLS="$tmp/gh-calls" bash "$S/merge-back.sh" .planning 09 demo prod 2>&1)"; mbrc=$?
+printf '%s' "$mb" | grep -qF 'PR https://github.com/o/r/pull/99' \
+  && grep -qF 'Closes #' "$tmp/fakegh/last-pr-body" \
+  && ok "merge-back PR body carries the Closes keywords for prod's open plan issues" \
+  || bad "PR body missing keywords rc=$mbrc body=$(cat "$tmp/fakegh/last-pr-body" 2>/dev/null)"
+git worktree remove "$tmp/agent/09-demo/prod" 2>/dev/null || true
+git branch -D agent/09-demo/prod 2>/dev/null || true
+
+echo "case 17 — ship sweep: verdict comment, sub closes, milestone close (MIR-07)"
+: > "$tmp/gh-calls"
+out="$(fake .planning 09 demo ship --verdict "PASSED 9/9" 2>&1)"; rc=$?
+[ $rc -eq 0 ] && grep -qF 'issue close 45 --comment PASSED 9/9' "$tmp/gh-calls" \
+  && ok "ship posts the verdict as the parent's closing comment (#45)" || bad "ship rc=$rc out=$out calls=$(cat "$tmp/gh-calls")"
+grep -qF 'issue close 46' "$tmp/gh-calls" && ok "ship sweeps remaining open sub-issues closed" || bad "sub-issue close missing"
+grep -qF 'api repos/o/r/milestones/7 -X PATCH -f state=closed' "$tmp/gh-calls" \
+  && ok "ship closes the milestone via gh api PATCH" || bad "milestone close missing"
+rm -f "$repo/.planning/config.json" "$repo/.planning/phases/11-mir/11-CONTEXT.md" "$repo/.planning/phases/11-mir/11-01-PLAN.md"
+ok "mirror fixtures restored (absent config = defaults)"
 
 echo
 if [ "$fail" -eq 0 ]; then echo "SELFTEST PASSED ($pass checks)"; exit 0; fi
