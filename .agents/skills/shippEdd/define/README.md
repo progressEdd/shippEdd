@@ -29,7 +29,7 @@ Into `phases/<NN>-<slug>/<NN>-CONTEXT.md`, row by row as they settled — not in
 It hit a gap — a missing decision, a conflict between inputs — and reported it instead of inventing requirements. Answer the gap question, and the planner is redispatched with the settled answer.
 
 **Research ran in the background — how do I check on it?**
-`bash .agents/skills/shippEdd/define/scripts/dispatch.sh --status` lists every run (state, PID alive/dead, log size); `tail <state>/runs/<id>.log` streams its output. When it finishes, the run itself flips its marker `.running` → `.done`.
+`bash .agents/skills/shippEdd/scripts/dispatch.sh --status --state-dir <runs home>/<NN>-<slug>` lists the phase's runs (state, PID alive/dead, log size); `tail <runs home>/<NN>-<slug>/<id>.log` streams its output. The runs home is config-driven (`runs-dir.sh`; default `${TMPDIR:-/tmp}/shippEdd`) — transient state never lands in the repo. When it finishes, RESEARCH.md in the phase folder is the truth; the marker is advisory.
 
 **A run's marker still says `.running` but its PID is dead.**
 That run was aborted or crashed — aborted runs never flip their own markers. Inspect the log, then delete the stale marker; the next `define`/`implement` command offers exactly that cleanup before redispatching.

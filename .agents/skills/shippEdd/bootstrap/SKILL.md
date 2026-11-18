@@ -6,9 +6,9 @@ disable-model-invocation: true
 
 # shippEdd bootstrap — once per repo, idempotent
 
-You are running an interactive wizard. You read the repo, ask the user only what cannot be detected, then — after one explicit confirmation — write the workflow skeleton. You are the only skill that creates the state dir; every other skill reads it.
+You are running an interactive wizard. You read the repo, ask the user only what cannot be detected, then — after one explicit confirmation — write the workflow skeleton. It also settles run placement (worktrees vs branch-in-checkout) and the merge-back disposition. You are the only skill that creates the state dir; every other skill reads it.
 
-All paths below are relative to this skill's folder (`scripts/`, `templates/`, `personas/`).
+All paths below are relative to this skill's folder (`templates/`, `personas/`, `scripts/wire-agents.sh`); the suite's shared scripts — `state-dir.sh`, `runs-dir.sh`, `dispatch.sh` — live at `.agents/skills/shippEdd/scripts/` (repo-relative).
 
 ## Ground rules
 
@@ -30,7 +30,7 @@ All paths below are relative to this skill's folder (`scripts/`, `templates/`, `
 
 ## Step 0 — resolve the state dir
 
-Run `scripts/state-dir.sh`. It prints exactly one line: the state dir path relative to the repo root (`$PLANNING_DIR` env → `.pi/planning.json` `state_dir` → `.planning`). That is the *current* resolution; step 2 below may decide to change what gets persisted.
+Run `.agents/skills/shippEdd/scripts/state-dir.sh`. It prints exactly one line: the state dir path relative to the repo root (`$PLANNING_DIR` env → `.pi/planning.json` `state_dir` → `.planning`). That is the *current* resolution; step 2 below may decide to change what gets persisted.
 
 ## Step 1 — DETECT (facts, not questions)
 
@@ -43,6 +43,7 @@ Gather all of this quietly before asking anything:
 - **Wired agent dirs**: for each of `.pi/agents/`, `.opencode/agents/`, `.cursor/agents/`, `.codex/agents/`, `.claude/agents/`, `.gemini/agents/`, `.github/agents/` — note which of the four personas (`planner` / `researcher` / `executor` / `verifier`, as `.md` or `.toml`) already exist there. This evidence only sets the ➡️ recommendation on step 3b's harness question — the question itself is asked every run. (No `personas/` folder in this skill = dev install — see step 3b.)
 - **`$PLANNING_DIR`**: set in the environment?
 - **GitHub**: `command -v gh` and `gh auth status`; `git remote` (only if git detected)
+- **Worktree topology**: `git worktree list --porcelain` — count the linked worktrees (entries after the first), and note the common folder of the first linked one (its dirname — e.g. `02-worktrees/`). Zero linked worktrees = worktree-less repo.
 - **`AGENTS.md`**: exists? already contains a `## Workflow` heading?
 
 Report a two-line summary of what you found (repo type, existing state, gh availability), then move to step 2. If this is a **rerun** (state markers already exist), jump to *Rerun behavior* instead of the fresh wizard.
@@ -154,6 +155,42 @@ One question, recommended combo first:
 ```
 Chosen values are written explicitly to `<state>/config.json` → `workflow`. (Convention: any key *absent* from config means **enabled** — but `ui_phase` defaults to off at setup, so it is always written explicitly.)
 
+## Step 4b — RUN PLACEMENT & DISPOSITION
+
+Facts first (step 1 gathered them): how many linked worktrees, and their common folder. Explain the trade in one breath before asking: **worktrees** give each run its own working tree — the main checkout stays untouched, runs survive reboots when placed in the repo's worktrees folder, and parallel branches stay checked out side by side; **branch mode** needs nothing extra but the main checkout switches onto the run's branch while work executes; the **tmp default** is transient only — markers and ledgers under `$TMPDIR`, wiped on reboot, worktree-less repos fall back to branch mode for work contexts.
+
+```
+❓ Run placement — where should executor work contexts and transient run state (markers, logs, prompts) live?
+  ➡️ 1. worktrees under <detected folder — or "a worktree we create first" when none is detected>
+    2. worktrees — create a worktree at a path I name (absolute or relative input both accepted)
+    3. branch in the main checkout — executors work on a new branch in the checkout; it switches branches while runs execute (invasiveness accepted)
+    4. defaults — transient `$TMPDIR` home; work contexts auto-detect (worktrees when the repo has them, branch otherwise)
+```
+
+- ➡️ marks option 1 when linked worktrees exist, option 3 when the repo is worktree-less and the user seems minimal, otherwise option 1.
+- **Option 1, no worktrees detected yet** (or option 2): ask for the path — absolute or relative to the repo root, free text. Create the worktree (it lands in the confirmation gate):
+
+  ```bash
+  git worktree add <path> -b <basename-of-path>
+  ```
+
+  (forked from HEAD; branch named after the path's basename). Then treat it like option 1 with `<path>`'s dirname as the folder.
+- **Option 1, worktrees detected**: the folder is the detected common folder; nothing is created.
+- **Option 3**: branch mode.
+- **Option 4**: the documented defaults — write nothing (absent keys are the defaults).
+
+Persist per the persistence rules — non-default choices only, merged into `<state>/config.json`: options 1/2 → `{"runs": {"mode": "worktrees", "dir": "<the folder, repo-relative unless the user gave absolute>"}}`; option 3 → `{"runs": {"mode": "branch"}}`; option 4 → nothing. When `runs.dir` points inside the repo and is not already gitignored, append it to `.gitignore` (gate line: `append .gitignore — <dir> (runs home)`).
+
+Then the landing question:
+
+```
+❓ Disposition at merge-back — how should finished work land?
+  ➡️ 1. pull request (default) — merge-back pushes the phase's branch and opens a PR; without gh or a remote it leaves the branch with a receipt naming the options
+    2. auto-merge — merge locally into the target branch (the pre-phase-05 behavior)
+```
+
+Option 1 writes nothing (absent = pr); option 2 writes `"disposition": "auto-merge"`.
+
 ## Step 5 — TIERS
 
 ```
@@ -210,8 +247,11 @@ I will create/modify:
     skip     personas — hermes has no agents dir; subagents run as profiles in ~/.hermes/config.yaml   (hermes only — instead of the wire line)
   CONFIG
     write    .pi/planning.json   (only the non-default keys chosen) — or: none, all defaults
-    write    <state>/config.json (toggles [+ github])
+    write    <state>/config.json (toggles [+ github] [+ runs placement] [+ disposition])
     append   AGENTS.md — "## Workflow" block   (or: merge — block already exists)
+  RUNS   (only when applicable — placement created a worktree / gitignored a dir)
+    create   worktree <path> (branch <basename>)   — the runs worktrees folder
+    append   .gitignore — <dir> (runs home)
   GIT
     commit   "chore: shippEdd setup"   |   append .gitignore entry
 
@@ -246,6 +286,8 @@ This repo runs **shippEdd** — a phase loop (discuss → research → plan → 
 | model tier overrides | `.pi/planning.json` → `models.<role>` | only changed roles |
 | workflow toggles | `<state>/config.json` → `workflow` | always (explicit values) |
 | github mirror | `<state>/config.json` → `github.mirror_issues` | only if chosen |
+| runs placement (mode/dir) | `<state>/config.json` → `runs` | only non-default choices (worktrees+folder or branch) |
+| disposition | `<state>/config.json` → `disposition` | only "auto-merge"; pr is the absent default |
 | everything default | **no `.pi/planning.json` at all** | absent = default |
 
 If `.pi/planning.json` already exists, merge: update only the keys decided in this wizard, never remove or rewrite unknown keys.
@@ -260,5 +302,5 @@ If state markers already exist when you reach step 1, skip the fresh wizard:
      ➡️ 1. yes — create only the missing files (a differing persona gets a diff and a replace-or-keep choice first)
        2. no — leave everything as is
    ```
-3. Show the current config (state dir, tiers, toggles) and offer to change any single setting.
+3. Show the current config (state dir, tiers, toggles, runs placement, disposition) and offer to change any single setting — placement changes re-ask the step 4b questions.
 4. Never overwrite user content. Only re-run the full wizard if the user explicitly asks to "start over".
