@@ -10,7 +10,10 @@
 # budget exhaustion (3 attempts, 4th refused), (5) clean per-target
 # merge-back incl. the AUTO-01 branch delete + idempotent re-run,
 # (6) DRIFT halt recovered within the merge budget, (7) merge-budget refusal
-# on a fresh agent-branch generation. Prints one line per check; ends with
+# on a fresh agent-branch generation. Phase 05 adds (8) dispatcher migration
+# (shared dispatch, nothing under .planning/), (9) config-driven placement,
+# (10) no-worktrees branch fallback, (11) PR receipt fallback, (12) PR create
+# via fake gh (DISP-06). Prints one line per check; ends with
 # SELFTEST PASSED/FAILED. Touches nothing outside its own $TMPDIR sandbox.
 #
 # Usage: auto-selftest.sh   (run from anywhere; needs git + bash only)
@@ -38,7 +41,7 @@ cp -R "$skill_src" "$repo/.agents/skills/shippEdd"
 rm -rf "$repo/.agents/skills/shippEdd/.git"   # vendored as plain files — a gitlink copy would read dirty
                                               # once auto-selftest.sh is tracked at the source
 rm -f "$repo/.agents/skills/shippEdd/scripts/auto-selftest.sh"  # never run the copy
-for spec in 09-01:prod 09-02:prod 09-03:prod 09-04:prod 09-05:trunk 09-06:prod; do
+for spec in 09-01:prod 09-02:prod 09-03:prod 09-04:prod 09-05:trunk 09-06:prod 09-07:prod; do
   pid_="${spec%%:*}"; tgt_="${spec##*:}"
   printf -- '---\nwave: %s\ndepends_on: []\ntarget: %s\n---\n\n# Plan %s: selftest fixture\n' \
     "${pid_#*-}" "$tgt_" "$pid_" > "$repo/.planning/phases/09-demo/$pid_-PLAN.md"
@@ -165,6 +168,11 @@ else
 fi
 
 echo "case 5 — clean per-target merge-back + AUTO-01 branch delete + idempotence"
+# deviation (05-05-D0): cases 5–7 were written for auto-merge semantics; 05-02
+# flipped the default disposition to pr, so they now hit the PR receipt fallback
+# instead of merging. Pin the disposition these cases test; the pr default is
+# restored before the phase-05 cases (below).
+printf '{\n  "disposition": "auto-merge"\n}\n' > "$repo/.planning/config.json"
 mb="$(bash "$S/merge-back.sh" .planning 09 demo prod 2>&1)"; mbrc=$?; echo "$mb"
 if [ "$mbrc" -eq 0 ] && printf '%s' "$mb" | grep -qF 'merged 09-demo/prod → prod' \
    && printf '%s' "$mb" | grep -qF 'branch agent/09-demo/prod deleted' \
@@ -208,6 +216,57 @@ done
 mb="$(bash "$S/merge-back.sh" .planning 09 demo prod 2>&1)"; rc=$?
 [ "$rc" -ne 0 ] && printf '%s' "$mb" | grep -qF 'BUDGET: merge of agent/09-demo/prod at 3 attempts (2 retries) — refusing' \
   && ok "the 4th merge attempt is mechanically refused" || bad "expected merge BUDGET refusal, got: $mb"
+
+rm -f "$repo/.planning/config.json"   # deviation (05-05-D0): restore the pr default for the phase-05 cases
+
+echo "case 8 — dispatcher migration: shared dispatch, nothing under .planning/ (DISP-01/02)"
+H="$TMPDIR/shippEdd"                                   # the sandbox runs home (absent config → tmp)
+mkdir -p "$H/09-demo"
+printf 'researcher prompt stub — flip your marker when done\n' > "$H/09-demo/09-research.prompt.md"
+cat > "$tmp/research-fake.sh" <<EOF
+#!/usr/bin/env bash
+cat >/dev/null   # drain the prompt
+mv "$H/09-demo/09-research.running" "$H/09-demo/09-research.done"
+echo "## RESEARCH COMPLETE (synthetic)"
+EOF
+chmod +x "$tmp/research-fake.sh"
+run_out="$(FAKE_MODE=ok SHIPPEDD_EXECUTOR_CMD="$tmp/research-fake.sh" \
+  bash "$repo/.agents/skills/shippEdd/scripts/dispatch.sh" 09-research "$H/09-demo/09-research.prompt.md" --state-dir "$H/09-demo")"
+echo "$run_out"
+if printf '%s' "$run_out" | grep -qF 'dispatched 09-research' \
+   && [ -f "$H/09-demo/09-research.done" ] && [ -f "$H/09-demo/09-research.log" ] \
+   && [ ! -e "$repo/.planning/runs" ]; then
+  ok "shared dispatch lands markers/log under the runs home; .planning/ stays runs-free"
+else
+  bad "migration dispatch misplaced state: out=$run_out"
+fi
+[ -e "$repo/.planning/runs" ] && bad ".planning/runs exists after shared dispatch (DISP-02 violation)"
+# deviation (05-05-D3): grep -q exits at first match → dispatch.sh takes SIGPIPE mid-list →
+# pipefail fails the pipeline even though grep matched. Capture first, then grep.
+st="$(bash "$repo/.agents/skills/shippEdd/scripts/dispatch.sh" --status --state-dir "$H/09-demo")"
+printf '%s' "$st" | grep -qF '09-research' \
+  && ok "--status lists the shared-dispatch run" || bad "--status missed 09-research (st=$st)"
+
+echo "case 9 — config placement: runs.dir relocates markers + worktrees"
+printf '{\n  "runs": { "dir": "wt-home" }\n}\n' > "$repo/.planning/config.json"
+out="$(disp ok 09-02 prod --force)"; echo "$out"    # re-dispatch a finished plan into the new home
+if printf '%s' "$out" | grep -qF 'dispatched 09-02' \
+   && [ -d "$repo/wt-home/09-demo/09-02" ]; then
+  ok "markers under wt-home/09-demo/ (config-driven home)"
+else
+  bad "config placement wrong: out=$out"
+fi
+if [ -d "$repo/wt-home/agent/09-demo/prod" ] \
+   || git worktree list --porcelain | grep -q "refs/heads/agent/09-demo/prod"; then
+  ok "the agent branch's worktree is placed per config (or reused at its existing checkout)"
+else
+  bad "no worktree found for the prod agent branch under either base"
+fi
+w="$(bash "$S/watch-wave.sh" .planning 09 demo 09-02 2>&1)"; wrc=$?
+[ "$wrc" -eq 0 ] && printf '%s' "$w" | grep -qF 'resolved 09-02: executed (SUMMARY complete)' \
+  && ok "watch-wave reads the config-driven home (SUMMARY oracle)" || bad "watch 09-02 rc=$wrc out=$w"
+rm -f "$repo/.planning/config.json"   # restore defaults for cases 10–12
+ok "config restored (absent = defaults)"
 
 echo
 if [ "$fail" -eq 0 ]; then echo "SELFTEST PASSED ($pass checks)"; exit 0; fi
