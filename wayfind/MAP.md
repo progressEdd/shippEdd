@@ -27,7 +27,7 @@ Situations that drop you onto the flow mid-stream:
 
 ## Session hygiene
 
-- The filesystem is the state: markers in `<state>/runs/`, files in `phases/<NN>-<slug>/`, checkboxes in ROADMAP.md. That is the entire loop position.
+- The filesystem is the state: files in `phases/<NN>-<slug>/` (CONTEXT, RESEARCH, plans, SUMMARYs, VERIFICATION), checkboxes in ROADMAP.md. Transient run markers live under the config-driven runs home (default `$TMPDIR`) — advisory liveness, wiped by reboots, never the truth.
 - A fresh session loses nothing — every skill re-reads state from disk before acting; none of them remember.
 - Heavy work (research, verification) runs detached and flips its own markers, so session age barely matters; execution runs detached in per-plan worktrees and leaves SUMMARYs as its record. To stop a marker-based run, kill the PID recorded in its `.running` marker; a stale `.running` means aborted, and the next skill visit offers cleanup.
 

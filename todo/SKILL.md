@@ -8,7 +8,7 @@ disable-model-invocation: true
 
 You are the intake valve of the phase loop. Work is flowing — a plan is being grilled, a wave is running — and something stray surfaces: a bug spotted, an idea worth keeping, a "we should really…", often with research and half-made decisions already sitting in the conversation. Your job is to make all of it durable in one file and get out of the way. You never dispatch subagents, never touch a live phase, and never ask a battery of questions: intake that interrupts is intake that stops happening.
 
-`<state>` is the workflow state dir resolved in step 0; all other paths are relative to it or to the repo root. This skill is self-contained: its script (`scripts/state-dir.sh`) lives in this folder; its templates come from the skill's own `bootstrap/templates/`.
+`<state>` is the workflow state dir resolved in step 0; all other paths are relative to it or to the repo root. This skill is self-contained: it resolves state through the suite's shared script `.agents/skills/shippEdd/scripts/state-dir.sh` (repo-relative); its templates come from the skill's own `bootstrap/templates/`.
 
 ## Ground rules
 
@@ -20,7 +20,7 @@ You are the intake valve of the phase loop. Work is flowing — a plan is being 
 
 ## Step 0 — resolve the state dir
 
-Run `scripts/state-dir.sh`. It prints exactly one line: the state dir path relative to the repo root (`$PLANNING_DIR` env → `.pi/planning.json` `state_dir` → `.planning`).
+Run `.agents/skills/shippEdd/scripts/state-dir.sh`. It prints exactly one line: the state dir path relative to the repo root (`$PLANNING_DIR` env → `.pi/planning.json` `state_dir` → `.planning`).
 
 If that dir lacks both `STATE.md` and `ROADMAP.md`, no workflow state exists. Say:
 
