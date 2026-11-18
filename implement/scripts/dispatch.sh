@@ -15,6 +15,8 @@
 # aborted/failed; the next orchestrator visit offers cleanup (inspect the log,
 # then delete the stale marker before redispatching). A MISSING state dir
 # means "state unknown" — never a failure: derive plan state from artifacts.
+# SHIPPEDD_EXECUTOR_CMD (env): when set, dispatched runs launch that command
+# instead of `pi --print` — the deterministic-selftest hook (AUTO-07).
 set -euo pipefail
 
 here="$(cd "$(dirname "$0")" && pwd)"
@@ -61,7 +63,16 @@ fi
 if [ "$force" -eq 1 ]; then rm -f "$runs/$id.running" "$runs/$id.done" "$runs/$id.failed"; fi
 
 cd "$root"
-nohup pi --print ${model[@]+"${model[@]}"} < "$prompt" > "${runs}/$id.log" 2>&1 &
+if [ -n "${SHIPPEDD_EXECUTOR_CMD:-}" ]; then
+  # Deterministic-testing hook (AUTO-07): run an arbitrary command as the
+  # executor instead of `pi --print` (auto-selftest.sh injects scripted
+  # executors this way; the command reads the prompt on stdin, exactly like
+  # pi). Split on spaces; --model is ignored in this mode.
+  read -r -a runner <<< "$SHIPPEDD_EXECUTOR_CMD"
+  nohup "${runner[@]}" < "$prompt" > "${runs}/$id.log" 2>&1 &
+else
+  nohup pi --print ${model[@]+"${model[@]}"} < "$prompt" > "${runs}/$id.log" 2>&1 &
+fi
 pid=$!
 printf '%s\n' "$pid" > "$runs/$id.running"
 printf 'dispatched %s (PID %s) → %s\n' "$id" "$pid" "${runs#"$root"/}/$id.log"
