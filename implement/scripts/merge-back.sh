@@ -60,7 +60,7 @@ for id in "$@"; do
       || { echo "HALT: $id worktree $run_dir/worktree is not clean to remove — inspect it, remove it manually, then delete branch $agent" >&2; exit 1; }
   fi
   git worktree prune
-  git branch -d "$agent" \
+  git -C "$wt" branch -d "$agent" \
     || { echo "HALT: branch $agent could not be deleted after merge — inspect manually" >&2; exit 1; }
   echo "merged $id → $target ($(git rev-parse --short "$target")) · worktree removed · branch $agent deleted"
 done
