@@ -6,13 +6,14 @@
 
 ## Next up
 
-**none — roadmap complete**
+**Phase 04: unattended-implement-loop**
 
 ## Phases
 
 - [x] **Phase 01: multi-harness-persona-wiring** — bootstrap works on eight harnesses, not just pi
 - [x] **Phase 02: execution-record-rework** — implement records live in SUMMARY frontmatter, not the runs dir; executors own git in per-plan worktrees
 - [x] **Phase 03: skill-polish-sweep** — the three banked todos land: clear-context guidance at phase-boundary handoffs, repo-relative dispatch receipts, and the PENDING-TODO template sourced solely from the skill
+- [ ] **Phase 04: unattended-implement-loop** — the two banked todos land: merge-back never halts on the branch delete (todo 06), and opt-in auto mode runs whole phases unattended (todo 07)
 
 ## Phase details
 
@@ -68,6 +69,25 @@ Plans:
 - [x] 03-03: PENDING-TODO template sourced solely from the skill — canonical half (POL-03)
 - [x] 03-04: state-dir sweep + vendored refresh with byte-parity verification (POL-03 state half, POL-04 — refresh carries POL-01..05; runs wave 5, after 03-05)
 - [x] 03-05: lazy phase scaffolding — define scaffolds folder + CONTEXT.md only; artifacts written on demand from skill templates (POL-05; runs wave 4)
+
+### Phase 04: unattended-implement-loop
+
+- **Goal:** `/skill:implement` runs a whole phase unattended **by default** — sequential plan execution in one temp worktree per target branch, bounded model-driven failure recovery (plans and merge-back halts alike), one merge at the end — plus the merge-back branch-delete fix (todo 06)
+- **Depends on:** Phase 02 (worktree/merge-back architecture), Phase 03 (skill conventions, vendored-refresh flow)
+- **Requirements:** AUTO-01…AUTO-08 (minted in REQUIREMENTS.md v4)
+- **Success criteria** (what must be TRUE) — settled by grilling (13 decisions, several reopening todo 07):
+  1. `merge-back.sh` deletes agent branches via `git -C <target checkout> branch -d` (safe `-d`, never `-D`) — a clean merge-back never halts; proven by a temp-repo merge-back simulation mirroring this repo's worktree layout
+  2. `/skill:implement` defaults to auto: one visit runs the phase's plans sequentially (one temp worktree per target, plan order), recovering failures via bounded model-driven re-dispatch — 2 retries / 3 attempts, mechanically enforced, merge-back halts recovered the same way — stopping only at completion or budget exhaustion, then handing over the full failure dossier
+  3. `/skill:implement manual` preserves today's stop-between-plans cadence; the skill README documents both modes, the recovery bounds, and the stop semantics
+  4. Sequential topology lands as the documented revision of EXEC-06/07 (REQUIREMENTS v4); plan state stays artifact-derived; nothing new writes per-run state into the repo
+  5. Proof: temp-repo simulation incl. a deliberate failure case, then phase 04's own remaining waves run in the new auto mode as the inaugural live run; phase ends with the vendored refresh (squash-merge + byte-parity)
+
+Plans:
+- [x] 04-01: todo-06 fix — merge-back branch delete via `git -C "$wt"` + temp-repo differential proof (AUTO-01)
+- [ ] 04-02: loop mechanics — sequential per-target dispatch-plan.sh (attempt budget, --fix-instructions), new watch-wave.sh, dispatch.sh test hook (AUTO-02/03/05/06)
+- [ ] 04-03: per-target merge-back rework (bounded merge budget, idempotent) + auto-selftest.sh — 7-case simulation incl. deliberate failure (AUTO-01/04/05/07)
+- [ ] 04-04: SKILL.md rewrite — auto default, `/skill:implement manual` opt-out, recovery protocol + dossier; README and template sweep (AUTO-02/03/04/05/06/08)
+- [ ] 04-05: EXEC-06/07 revised-by annotations + vendored refresh with byte-parity — runs as the inaugural auto-mode live run (AUTO-05/07/08)
 
 ## Progress
 
