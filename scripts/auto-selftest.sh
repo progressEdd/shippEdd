@@ -452,7 +452,8 @@ if [ "$1" = api ]; then
   emit() { if [ -n "$jqprog" ]; then printf '%s\n' "$1" | jq -r "$jqprog"; else printf '%s\n' "$1"; fi; }
   case "$2" in
     user) echo '{"login":"fake"}' ;;
-    repos/*/milestones)
+    repos/*/milestones/*) exit 0 ;;
+    repos/*/milestones*)
       if [ "${3:-}" = "-f" ]; then
         printf '7\t%s\n' "${4#title=}" >> "$S/milestones"; emit '{"number":7}'
       else
@@ -463,7 +464,6 @@ if [ "$1" = api ]; then
         done < "$S/milestones" 2>/dev/null
         emit "$out]"
       fi ;;
-    repos/*/milestones/*) exit 0 ;;
   esac
   exit 0
 fi

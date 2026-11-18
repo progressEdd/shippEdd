@@ -110,7 +110,7 @@ ghm() { "$gh_bin" "$@" -R "$cfg_repo"; }   # repo-scoped gh: -R on EVERY call (n
 # --- issue identity: stable title lookup keys (MIR-03) ---------------------------
 # NOTE: every key ends with a trailing space — it is load-bearing ([06] D4 must not match [06] D40)
 issues_json="$work/issues.json"
-refresh_issues() { ghm issue list --state all --json number,title > "$issues_json" 2>/dev/null || printf '[]' > "$issues_json"; }
+refresh_issues() { ghm issue list --state all --limit 1000 --json number,title > "$issues_json" 2>/dev/null || printf '[]' > "$issues_json"; }   # --limit: gh's 30/page default silently hides older issues once the tree grows (live-run finding)
 find_issue() {  # find_issue <key prefix> -> prints the issue number, or nothing
   jq -r --arg k "$1" 'map(select(.title|startswith($k))) | .[0].number // empty' "$issues_json" 2>/dev/null
 }
@@ -158,7 +158,7 @@ ensure_label() {  # list-then-create; never --force (a configured user label is 
 }
 ensure_milestone() {  # sets ms_args=() or (--milestone "Phase NN: slug")  [gh api: no gh milestone command]
   local title="Phase $nn: $slug" n
-  n="$("$gh_bin" api "repos/$cfg_repo/milestones" --jq ".[] | select(.title==\"$title\") | .number" 2>/dev/null | head -n1)"
+  n="$("$gh_bin" api "repos/$cfg_repo/milestones?state=all" --jq ".[] | select(.title==\"$title\") | .number" 2>/dev/null | head -n1)"
   if [ -z "$n" ]; then
     n="$("$gh_bin" api "repos/$cfg_repo/milestones" -f title="$title" --jq .number 2>/dev/null || true)"
     [ -n "$n" ] || note "milestone '$title' create/find failed — issues will carry no milestone"
@@ -392,7 +392,7 @@ cmd_ship() {  # ship --verdict "<one line from VERIFICATION.md>"
   done < <(ghm issue view "$pn" --json subIssues --jq '.subIssues[].number' 2>/dev/null)
   # 3. milestone close (gh api PATCH — there is no gh milestone command)
   local title="Phase $nn: $slug" ms
-  ms="$("$gh_bin" api "repos/$cfg_repo/milestones" --jq ".[] | select(.title==\"$title\") | .number" 2>/dev/null | head -n1)"
+  ms="$("$gh_bin" api "repos/$cfg_repo/milestones?state=all" --jq ".[] | select(.title==\"$title\") | .number" 2>/dev/null | head -n1)"
   if [ -n "$ms" ]; then
     "$gh_bin" api "repos/$cfg_repo/milestones/$ms" -X PATCH -f state=closed >/dev/null 2>&1 \
       || note "milestone close failed: $title"
@@ -494,7 +494,7 @@ cmd_backfill() {
   # -- milestone created closed (D20) --
   if [ "${#ms_args[@]}" -gt 0 ]; then
     local title="Phase $nn: $slug" ms
-    ms="$("$gh_bin" api "repos/$cfg_repo/milestones" --jq ".[] | select(.title==\"$title\") | .number" 2>/dev/null | head -n1)"
+    ms="$("$gh_bin" api "repos/$cfg_repo/milestones?state=all" --jq ".[] | select(.title==\"$title\") | .number" 2>/dev/null | head -n1)"
     [ -n "$ms" ] && { "$gh_bin" api "repos/$cfg_repo/milestones/$ms" -X PATCH -f state=closed >/dev/null 2>&1 || note "milestone close failed: $title"; }
   fi
 
