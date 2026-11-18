@@ -1,12 +1,12 @@
 ---
-next_action: /skill:implement
-progress: planned
+next_action: /skill:review
+progress: executed
 ---
 
 # State
 
 **Phase:** 04 unattended-implement-loop
-**Status:** executing — waves 1–4 done (04-01…04-04 merged into master); final wave 5: 04-05 (EXEC-06/07 annotations + vendored refresh, target progressEdd)
+**Status:** executed — 5 plans across 5 waves, merged into their targets in plan order; awaiting review
 **Next:** `/skill:implement` — runs 04-01 first; in a fresh session
 
 <!--
