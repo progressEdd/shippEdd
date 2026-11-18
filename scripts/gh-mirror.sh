@@ -119,10 +119,204 @@ key_plan()     { printf '[%s] plan %s ' "$nn" "$1"; }
 declare -A NUM   # lookup-key -> issue number: this run's identity map (GitHub is authoritative)
 short() { printf '%s' "$1" | tr -d '\n' | cut -c1-72; }
 
+# --- capture: CONTEXT + plans -> issue tree (MIR-03/MIR-04) ----------------------
+decision_rows() {  # prints "<n>\t<question>\t<decision>\t<why>" per decisions-table row
+  [ -f "$context" ] || return 0
+  awk -F'|' '/^\|[[:space:]]*[0-9]+[[:space:]]*\|/ {
+    gsub(/^ +| +$/, "", $2); gsub(/^ +| +$/, "", $3); gsub(/^ +| +$/, "", $4); gsub(/^ +| +$/, "", $5)
+    print $2 "\t" $3 "\t" $4 "\t" $5
+  }' "$context"
+}
+md_section() { awk -v h="## $2" '$0==h{f=1;next} /^## /{f=0} f' "$1" 2>/dev/null; }
+goal_line()  { md_section "$context" "Goal" | grep -v '^[[:space:]]*$' | head -n1; }
+
+plans_of_phase() {  # prints "<plan-id>\t<plan-file>" sorted (FX plans included)
+  local f id
+  for f in "$phase_dir"/"$nn"-*-PLAN.md; do
+    [ -f "$f" ] || continue
+    id="$(basename "${f%-PLAN.md}")"
+    printf '%s\t%s\n' "$id" "$f"
+  done | sort
+}
+plans_of_target() {  # plans_of_target <target> — plans whose frontmatter target matches (missing target = master)
+  local pid pf t
+  while IFS=$'\t' read -r pid pf; do
+    t="$(sed -n 's/^target:[[:space:]]*//p' "$pf" | head -n1)"; [ -z "$t" ] && t=master
+    [ "$t" = "$1" ] && printf '%s\t%s\n' "$pid" "$pf"
+  done < <(plans_of_phase)
+}
+fixes_of() { sed -n 's/^fixes:[[:space:]]*//p' "$1" | head -n1; }
+
+ensure_label() {  # list-then-create; never --force (a configured user label is never restyled)
+  ghm label list --json name --jq '.[].name' 2>/dev/null | grep -Fxq "$label0" && { label_ok=1; return 0; }
+  if ghm label create "$label0" --color 5319E7 --description "shippEdd workflow artifact" >/dev/null 2>&1; then
+    label_ok=1
+  else
+    label_ok=0; note "label '$label0' create failed — issues will carry no label"
+  fi
+}
+ensure_milestone() {  # sets ms_args=() or (--milestone "Phase NN: slug")  [gh api: no gh milestone command]
+  local title="Phase $nn: $slug" n
+  n="$("$gh_bin" api "repos/$cfg_repo/milestones" --jq ".[] | select(.title==\"$title\") | .number" 2>/dev/null | head -n1)"
+  if [ -z "$n" ]; then
+    n="$("$gh_bin" api "repos/$cfg_repo/milestones" -f title="$title" --jq .number 2>/dev/null || true)"
+    [ -n "$n" ] || note "milestone '$title' create/find failed — issues will carry no milestone"
+  fi
+  ms_args=(); [ -n "$n" ] && ms_args=(--milestone "$title")
+}
+create_issue() {  # create_issue <title> <body-file> [extra ghm issue create args...] -> prints the number (empty on miss)
+  local title="$1" body="$2"; shift 2
+  local out
+  out="$(ghm issue create --title "$title" --body-file "$body" ${tag_args[@]+"${tag_args[@]}"} "$@")" \
+    || { note "issue create failed: $title"; return; }
+  printf '%s\n' "$out" | grep -oE '/issues/[0-9]+' | grep -oE '[0-9]+' | head -n1
+}
+
+refresh_plan_cache() {  # refresh_plan_cache <plan-file> <number> — advisory `issue:` frontmatter cache
+  awk -v n="issue: \"#$2\"" '
+    NR==1 && $0=="---" { print; print n; infm=1; next }
+    infm && $0=="---" { infm=0; print; next }
+    infm && /^issue:/ { next }
+    { print }
+  ' "$1" > "$work/plan.new" && mv "$work/plan.new" "$1"
+}
+
+refresh_context_cache() {  # refresh_context_cache <parent-number-or-empty> — parent line + Issue column, best-effort
+  local parent="$1" map="" k
+  [ -f "$context" ] || return 1
+  for k in "${!NUM[@]}"; do case "$k" in D*) map="$map ${k#D}=${NUM[$k]}";; esac; done
+  awk -v parent="${parent:-}" -v map="$map" '
+    BEGIN { n=split(map, m, " "); for (i=1; i<=n; i++) { split(m[i], kv, "="); num[kv[1]]=kv[2] } }
+    /^\*\*Gathered:/ { print; if (parent != "") { print ""; print "**GitHub parent:** #" parent }; next }
+    /^\*\*GitHub parent:\*\*/ { if (parent != "") print "**GitHub parent:** #" parent; next }
+    /^\|[[:space:]]*#[[:space:]]*\|[[:space:]]*Question/ {
+      if ($0 !~ /Issue/) { $0 = $0 " Issue |"; addsep = 1 }
+      print; next
+    }
+    addsep == 1 && /^\|[-|]+[[:space:]]*$/ { sub(/\|$/, ""); $0 = $0 "---|"; addsep = 0; print; next }
+    /^\|[[:space:]]*[0-9]+[[:space:]]*\|/ {
+      split($0, f, "|"); d = f[2]; gsub(/[[:space:]]/, "", d)
+      if ($0 ~ /\|[[:space:]]*(#[0-9]+|—)[[:space:]]*\|[[:space:]]*$/) sub(/\|[[:space:]]*(#[0-9]+|—)[[:space:]]*\|[[:space:]]*$/, "|", $0)
+      print $0 " " ((d in num) ? "#" num[d] : "—") " |"; next
+    }
+    { print }
+  ' "$context" > "$work/context.new" && mv "$work/context.new" "$context"
+}
+
+cmd_capture() {
+  preflight
+  local label_ok=0; ensure_label; ensure_milestone
+  tag_args=(); [ "$label_ok" = 1 ] && tag_args+=(--label "$label0")
+  [ "${#ms_args[@]}" -gt 0 ] && tag_args+=("${ms_args[@]}")
+  refresh_issues
+  local created="" updated="" closedr="" cached=0
+
+  # -- parent issue (goal + constraints + UI spec + open questions in the body) --
+  local pn; pn="$(find_issue "$(key_parent)")"
+  if [ -n "$pn" ]; then
+    NUM[parent]="$pn"
+  else
+    { echo "Phase $nn \`$slug\` — captured by shippEdd's define approval sweep. The local markdown in \`$state/phases/$nn-$slug/\` is the source of truth; this issue tree is its mirror."
+      echo; echo "## Goal"; md_section "$context" "Goal"; echo
+      echo "## Constraints"; md_section "$context" "Constraints"; echo
+      ui="$(md_section "$context" "UI Spec")"
+      [ -n "$ui" ] && { echo "## UI Spec"; printf '%s\n\n' "$ui"; }
+      echo "## Open questions (at capture)"; md_section "$context" "Open questions"
+      echo; echo "Lookup keys: \`$(key_parent)\`(parent) · \`[$nn] D<n>\`(decisions) · \`[$nn] plan <id>\`(plans)"
+    } > "$work/parent.md"
+    pn="$(create_issue "$(key_parent)— $(goal_line)" "$work/parent.md")"
+    [ -n "$pn" ] && { NUM[parent]="$pn"; created="${created:+$created }parent #$pn"; }
+  fi
+
+  # -- decision sub-issues: create missing, rewrite drifted bodies --
+  local dn q d w key n
+  while IFS=$'\t' read -r dn q d w; do
+    [ -n "${dn:-}" ] || continue
+    key="$(key_decision "$dn")"
+    n="$(find_issue "$key")"
+    { echo "**Question:** $q"; echo; echo "**Decision:** $d"; echo; echo "**Why:** $w"; echo
+      echo "Sub-issue of #${NUM[parent]} · lookup key \`$key\`— local row $dn; GitHub owns this number"
+    } > "$work/d.md"
+    if [ -n "$n" ]; then
+      ghm issue edit "$n" --title "$key— $(short "$d")" --body-file "$work/d.md" >/dev/null 2>&1 \
+        && updated="$updated D$dn #$n" || note "body rewrite failed: D$dn"
+      NUM["D$dn"]="$n"
+    else
+      n="$(create_issue "$key— $(short "$d")" "$work/d.md" --parent "${NUM[parent]}")"
+      [ -n "$n" ] && { NUM["D$dn"]="$n"; created="${created:+$created }D$dn #$n"; }
+    fi
+  done < <(decision_rows)
+
+  # -- plan sub-issues: tasklist bodies; FX plans nest under the plan they fix --
+  local pid pf obj fx fxn parent_for_plan old_body mark tk tname
+  while IFS=$'\t' read -r pid pf; do
+    [ -n "${pid:-}" ] || continue
+    key="$(key_plan "$pid")"
+    parent_for_plan="${NUM[parent]}"
+    fx="$(fixes_of "$pf")"
+    if [ -n "$fx" ]; then
+      fxn="$(find_issue "$(key_plan "$fx")")"
+      if [ -n "$fxn" ]; then parent_for_plan="$fxn"; else note "FX $pid fixes $fx but that plan has no issue yet — parenting under the phase parent"; fi
+    fi
+    n="$(find_issue "$key")"
+    obj="$(sed -n 's/^\*\*Objective:\*\* //p' "$pf" | head -n1)"
+    old_body=""; [ -n "$n" ] && old_body="$(ghm issue view "$n" --json body -q .body 2>/dev/null || true)"
+    { echo "**Objective:** ${obj:-<see plan>}"; echo
+      echo "**Tasks** (flipped automatically as execution completes):"
+      while IFS=$'\t' read -r tk tname; do
+        [ -n "${tk:-}" ] || continue
+        mark="[ ]"
+        printf '%s\n' "$old_body" | grep -qF -- "- [x] [$pid] T$tk " && mark="[x]"   # preserve checked lines on rewrite
+        echo "- $mark [$pid] T$tk — $tname"
+      done < <(sed -n 's/^<name>Task \([0-9][0-9]*\): \(.*\)<\/name>$/\1\t\2/p' "$pf")
+      echo
+      echo "Closes via this plan's PR (closing keywords) or review's ship sweep · sub-issue of #${parent_for_plan} · lookup key \`$key\`"
+    } > "$work/p.md"
+    if [ -n "$n" ]; then
+      ghm issue edit "$n" --title "$key— $(short "${obj:-$pid}")" --body-file "$work/p.md" >/dev/null 2>&1 \
+        && updated="$updated plan $pid #$n" || note "body rewrite failed: plan $pid"
+      NUM["plan:$pid"]="$n"
+    else
+      n="$(create_issue "$key— $(short "${obj:-$pid}")" "$work/p.md" --parent "$parent_for_plan")"
+      [ -n "$n" ] && { NUM["plan:$pid"]="$n"; created="${created:+$created }plan $pid #$n"; }
+    fi
+  done < <(plans_of_phase)
+
+  # -- drift: GitHub items carrying a [$nn] key with no local counterpart -> close --
+  refresh_issues
+  local num t k
+  while IFS=$'\t' read -r num t; do
+    [ -n "${num:-}" ] || continue
+    case "$t" in
+      "$(key_parent)"*) continue ;;
+      "[$nn] D"*)     k="$(printf '%s' "$t" | awk '{print $2}')";      [ -n "${NUM[$k]:-}" ] && continue ;;
+      "[$nn] plan "*) k="plan:$(printf '%s' "$t" | awk '{print $3}')"; [ -n "${NUM[$k]:-}" ] && continue ;;
+      *) continue ;;
+    esac
+    ghm issue close "$num" --comment "shippedd re-sync: no longer present in CONTEXT/plans (edited or superseded)" >/dev/null 2>&1 \
+      && closedr="$closedr #$num" || note "drift close failed: #$num $t"
+  done < <(jq -r '.[] | "\(.number)\t\(.title)"' "$issues_json")
+
+  # -- advisory cache write-back (GitHub owns the numbers; these never load-bear) --
+  refresh_context_cache "${NUM[parent]:-}" && cached=$((cached+1))
+  while IFS=$'\t' read -r pid pf; do
+    [ -n "${NUM[plan:$pid]:-}" ] && refresh_plan_cache "$pf" "${NUM[plan:$pid]}" && cached=$((cached+1))
+  done < <(plans_of_phase)
+
+  # -- receipt (never-block: exit 0 whatever happened above) --
+  echo "mirror capture $nn-$slug → $cfg_repo (label '$label0'${ms_args[0]:+, milestone ${ms_args[0]#--milestone }})"
+  [ -n "$created" ] && echo "  created  $created"
+  [ -n "$updated" ] && echo "  updated  $updated"
+  [ -n "$closedr" ] && echo "  closed   $closedr  (re-sync: dropped/superseded)"
+  [ "$cached" -gt 0 ] && echo "  cache    refreshed $cached local fields (advisory — GitHub owns the numbers)"
+  [ "${#misses[@]}" -gt 0 ] && printf '  missed   %s\n' "${misses[*]}"
+  echo "  retry    $retry"
+}
+
 # === command dispatcher ===
 case "$cmd" in
   ready)      ready_line ;;
-  capture)    echo "gh-mirror: capture lands in plan 06-01 task 2 (stub)" >&2 ;;
+  capture)    cmd_capture "$@" ;;
   progress)   echo "gh-mirror: progress lands in plan 06-01 task 3 (stub)" >&2 ;;
   pr-body)    echo "gh-mirror: pr-body lands in plan 06-01 task 3 (stub)" >&2 ;;
   close-plan) echo "gh-mirror: close-plan lands in plan 06-01 task 3 (stub)" >&2 ;;
