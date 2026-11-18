@@ -39,7 +39,7 @@ The dispatch line prints the run dir (`${TMPDIR:-/tmp}/shippEdd/<phase>/<plan>/`
 - One `/skill:implement` visit takes a phase from approved plans to merged targets without re-entry — sequential dispatches, one resolution line per plan, one merge bubble per target per phase (`merge(<NN>-<slug>/<target>):` on each target's log).
 - Each executed plan leaves exactly one durable artifact: `NN-YY-SUMMARY.md`, committed by the gate as it lands.
 - A deliberately failing plan recovers via fix-instructions within 3 attempts, or stops the loop with the dossier — never a fourth silent attempt; a clean merge-back never halts (the branch delete runs from the target's own checkout).
-- `bash <skill>/implement/scripts/auto-selftest.sh` passes — the deterministic temp-repo simulation of the whole loop (scripted executors, a deliberate failure case, budget and drift halts).
+- `bash <skill>/scripts/auto-selftest.sh` passes — the deterministic temp-repo simulation of the whole loop (scripted executors, a deliberate failure case, budget and drift halts).
 - Re-running `/skill:implement` at any moment is safe: landed plans are skipped, in-flight ones watched, interrupted ones re-dispatched with `--force` (idempotence by law).
 
 ## Where it fits

@@ -17,7 +17,7 @@
 set -uo pipefail
 
 here="$(cd "$(dirname "$0")" && pwd)"
-skill_src="$(cd "$here/../.." && pwd)"            # the shippEdd skill tree
+skill_src="$(cd "$here/.." && pwd)"               # the shippEdd skill tree (scripts/ sits at its root since phase 05)
 tmp="$(mktemp -d -t shippEdd-auto-selftest.XXXXXX)"
 export TMPDIR="$tmp/tmp"; mkdir -p "$TMPDIR"
 cleanup() { rm -rf "$tmp"; }
@@ -54,7 +54,7 @@ cat > "$tmp/fake-executor.sh" <<'EOF'
 #!/usr/bin/env bash
 set -u
 prompt="$(cat)"
-wt="$(printf '%s\n' "$prompt" | grep -m1 -E '^  .*worktree$' | sed 's/^  //')"
+wt="$(printf '%s\n' "$prompt" | grep -m1 -E '^  .*/agent/' | sed 's/^  //')"
 smry="$(printf '%s\n' "$prompt" | grep -m1 -E '^  .*SUMMARY\.md$' | sed 's/^  //')"
 runmark="$(printf '%s\n' "$prompt" | grep -m1 -oE 'mv [^ ]+\.running [^ ]+\.done' | awk '{print $2}')"
 attempt="$(printf '%s\n' "$prompt" | grep -m1 -oE 'attempt [0-9]+ of at most 3' | grep -oE '[0-9]+' | head -n1)"
@@ -169,7 +169,7 @@ mb="$(bash "$S/merge-back.sh" .planning 09 demo prod 2>&1)"; mbrc=$?; echo "$mb"
 if [ "$mbrc" -eq 0 ] && printf '%s' "$mb" | grep -qF 'merged 09-demo/prod → prod' \
    && printf '%s' "$mb" | grep -qF 'branch agent/09-demo/prod deleted' \
    && ! git rev-parse --verify -q refs/heads/agent/09-demo/prod >/dev/null \
-   && [ ! -d "$TMPDIR/shippEdd/09-demo/prod/worktree" ] \
+   && [ ! -d "$tmp/agent/09-demo/prod" ] \
    && git -C "$tmp/prod-wt" log --merges --grep 'merge(09-demo/prod):' -1 --format=%H | grep -q .; then
   ok "per-target merge lands, worktree removed, branch deleted from the target checkout — no HALT (AUTO-01)"
 else

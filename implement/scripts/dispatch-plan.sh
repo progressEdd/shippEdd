@@ -21,7 +21,8 @@ set -euo pipefail
 
 here="$(cd "$(dirname "$0")" && pwd)"
 root="$(git rev-parse --show-toplevel 2>/dev/null || pwd)"
-state="$("$here/state-dir.sh")"
+shared="$here/../../scripts"
+state="$("$shared/state-dir.sh")"
 skill_tpl="$here/../../bootstrap/templates"
 persona="$here/../../bootstrap/personas/executor.md"
 usage='usage: dispatch-plan.sh <NN-YY> <plan-file> <target> [--summary-template <path>] [--fix-instructions <file>] [--model <model-id>] [--force]'
@@ -43,9 +44,11 @@ done
 
 phase_dir="$(dirname "$plan")"          # .../phases/<NN>-<slug>
 slug_dir="$(basename "$phase_dir")"     # <NN>-<slug>
-phase_runs="${TMPDIR:-/tmp}/shippEdd/$slug_dir"
+phase_runs="$("$shared/runs-dir.sh" home)/$slug_dir"
 run_dir="$phase_runs/$id"               # this plan's dispatch state
 tgt_dir="$phase_runs/$target"           # the target's shared worktree home
+wt_base="$("$shared/runs-dir.sh" worktree-base)"
+tgt_wt="$wt_base/agent/$slug_dir/$target"     # the target's agent worktree (DISP-04 layout)
 agent="agent/$slug_dir/$target"         # ONE agent branch per (phase, target)
 
 case "$plan" in /*) ;; *) plan="$PWD/$plan" ;; esac
@@ -93,11 +96,17 @@ if [ -e "$run_dir/$id.running" ] || [ -e "$run_dir/$id.done" ] || [ -e "$run_dir
   echo "refused: run '$id' already has a marker in $run_dir (use --force to redispatch)" >&2; exit 1
 fi
 
-if [ -d "$tgt_dir/worktree" ] && [ -e "$tgt_dir/worktree/.git" ]; then
+agent_wt="$(git worktree list --porcelain | awk -v want="refs/heads/$agent" '
+  /^worktree / { wt = substr($0, 10); bra = ""; det = 0 }
+  /^detached/  { det = 1 }
+  /^branch /   { bra = substr($0, 8) }
+  bra == want && !det { print wt; exit }
+')"   # an existing checkout of the agent branch wins — idempotence across base moves
+if [ -n "$agent_wt" ]; then
   [ -f "$tgt_dir/fork-base" ] || git merge-base "$agent" "$target" > "$tgt_dir/fork-base"
   fork_note="reused $target worktree (branch $agent)"
 elif git rev-parse --verify --quiet "refs/heads/$agent" >/dev/null; then
-  git worktree add --quiet "$tgt_dir/worktree" "$agent"
+  git worktree add --quiet "$tgt_wt" "$agent"
   [ -f "$tgt_dir/fork-base" ] || git merge-base "$agent" "$target" > "$tgt_dir/fork-base"
   rm -f "$tgt_dir/merge-attempts"
   fork_note="re-attached branch $agent (fork base re-derived)"
@@ -105,7 +114,7 @@ else
   fork_base="$(git rev-parse "refs/heads/$target")"
   printf '%s\n' "$fork_base" > "$tgt_dir/fork-base"
   rm -f "$tgt_dir/merge-attempts"   # fresh agent-branch generation: merge budget restarts
-  git worktree add --quiet -b "$agent" "$tgt_dir/worktree" "$fork_base"
+  git worktree add --quiet -b "$agent" "$tgt_wt" "$fork_base"
   fork_note="forked $target@$(git rev-parse --short "$fork_base")"
 fi
 
@@ -119,7 +128,7 @@ prompt="$run_dir/$id.prompt.md"
   echo
   echo "## Assignment"
   echo "You are executing plan $id for the shippEdd workflow (attempt $attempt_no of at most 3). Your working tree:"
-  echo "  $tgt_dir/worktree"
+  echo "  ${agent_wt:-$tgt_wt}"
   echo "— the phase's agent worktree for branch $target (branch $agent). It is shared,"
   echo "sequentially, by this phase's $target-targeting plans: commits from earlier plans"
   echo "of this phase may already be on the branch — that is prior work to build on,"
@@ -181,6 +190,6 @@ prompt="$run_dir/$id.prompt.md"
 printf '%s  attempt %s\n' "$(date -u +%Y-%m-%dT%H:%M:%SZ)" "$attempt_no" >> "$run_dir/attempts"
 printf '%s\n' "$target" > "$run_dir/$id.target"
 
-"$here/dispatch.sh" "$id" "$prompt" --state-dir "$run_dir" ${model[@]+"${model[@]}"}
-printf 'worktree %s (%s)\n' "$tgt_dir/worktree" "$fork_note"
+"$shared/dispatch.sh" "$id" "$prompt" --state-dir "$run_dir" ${model[@]+"${model[@]}"}
+printf 'worktree %s (%s)\n' "${agent_wt:-$tgt_wt}" "$fork_note"
 printf 'attempt %s/3\n' "$attempt_no"

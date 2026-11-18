@@ -15,10 +15,11 @@
 set -euo pipefail
 
 root="$(git rev-parse --show-toplevel 2>/dev/null || pwd)"
+shared="$(cd "$(dirname "$0")/../.." && pwd)/scripts"
 state="${1:?usage: merge-back.sh <state-dir> <NN> <slug> <target-branch>}"
 nn="${2:?NN required}"; slug="${3:?slug required}"; target="${4:?target branch required}"
 agent="agent/$nn-$slug/$target"
-tgt_dir="${TMPDIR:-/tmp}/shippEdd/$nn-$slug/$target"
+tgt_dir="$("$shared/runs-dir.sh" home)/$nn-$slug/$target"
 
 checkout_of() {  # path of the worktree holding branch $target, or empty
   git worktree list --porcelain | awk -v want="refs/heads/$target" '
@@ -62,17 +63,23 @@ echo "precheck $nn-$slug/$target → $target (checkout ${wt#"$root"/})"
 fork_base="$(cat "$tgt_dir/fork-base")"
 mb="$(git merge-base "$agent" "$target")"
 if [ "$mb" != "$fork_base" ]; then
-  echo "DRIFT: $agent stranded — forked at $(git rev-parse --short "$fork_base"), but merge-base with $target is $(git rev-parse --short "$mb"); worktree $tgt_dir/worktree left in place. Recover: inspect $agent, then either re-record $tgt_dir/fork-base (if $target's advance is legitimate) or re-plan the slice." >&2
+  echo "DRIFT: $agent stranded — forked at $(git rev-parse --short "$fork_base"), but merge-base with $target is $(git rev-parse --short "$mb"); worktree $tgt_dir (agent branch checkout) left in place. Recover: inspect $agent, then either re-record $tgt_dir/fork-base (if $target's advance is legitimate) or re-plan the slice." >&2
   exit 1
 fi
 if ! git -C "$wt" merge --no-ff --no-edit "$agent" -m "merge($nn-$slug/$target): phase $nn-$slug into $target"; then
   git -C "$wt" merge --abort
-  echo "CONFLICT: $agent stranded — worktree $tgt_dir/worktree, target $target. Recover: merge $agent into $target by hand in $wt, or resolve the collision and re-dispatch the plan." >&2
+  echo "CONFLICT: $agent stranded — worktree $tgt_dir (agent branch checkout), target $target. Recover: merge $agent into $target by hand in $wt, or resolve the collision and re-dispatch the plan." >&2
   exit 1
 fi
-if [ -d "$tgt_dir/worktree" ]; then
-  git worktree remove "$tgt_dir/worktree" \
-    || { echo "HALT: worktree $tgt_dir/worktree is not clean to remove — inspect it, remove it manually, then delete branch $agent" >&2; exit 1; }
+agent_wt="$(git worktree list --porcelain | awk -v want="refs/heads/$agent" '
+  /^worktree / { wt = substr($0, 10); bra = ""; det = 0 }
+  /^detached/  { det = 1 }
+  /^branch /   { bra = substr($0, 8) }
+  bra == want && !det { print wt; exit }
+')"
+if [ -n "$agent_wt" ]; then
+  git worktree remove "$agent_wt" \
+    || { echo "HALT: worktree $agent_wt is not clean to remove — inspect it, remove it manually, then delete branch $agent" >&2; exit 1; }
 fi
 git worktree prune
 git -C "$wt" branch -d "$agent" \
