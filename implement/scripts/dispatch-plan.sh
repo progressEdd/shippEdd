@@ -48,8 +48,9 @@ phase_runs="$("$shared/runs-dir.sh" home)/$slug_dir"
 run_dir="$phase_runs/$id"               # this plan's dispatch state
 tgt_dir="$phase_runs/$target"           # the target's shared worktree home
 wt_base="$("$shared/runs-dir.sh" worktree-base)"
-tgt_wt="$wt_base/agent/$slug_dir/$target"     # the target's agent worktree (DISP-04 layout)
 agent="agent/$slug_dir/$target"         # ONE agent branch per (phase, target)
+tgt_wt="$wt_base/$agent"                # the target's agent worktree (DISP-04 layout)
+mode="$("$shared/runs-dir.sh" mode)"          # work context: worktrees | branch (DISP-04)
 
 case "$plan" in /*) ;; *) plan="$PWD/$plan" ;; esac
 [ -f "$plan" ] || { echo "no such plan file: $plan" >&2; exit 1; }
@@ -79,12 +80,16 @@ for sibling in "$phase_runs"/*/; do
   [ -d "$sibling" ] || continue
   s_id="$(basename "$sibling")"
   [ "$s_id" = "$id" ] && continue
-  [ "$(cat "$sibling/$s_id.target" 2>/dev/null || true)" = "$target" ] || continue
+  if [ "$mode" = worktrees ]; then
+    [ "$(cat "$sibling/$s_id.target" 2>/dev/null || true)" = "$target" ] || continue
+  fi   # branch mode: one main checkout shared by all targets — any live sibling refuses
   for marker in "$sibling"/*.running; do
     [ -f "$marker" ] || continue
     pid="$(head -n1 "$marker" 2>/dev/null | grep -oE '[0-9]+' || true)"
     if [ -n "$pid" ] && kill -0 "$pid" 2>/dev/null; then
-      echo "REFUSED: plan $s_id is still executing in the $target worktree (sequential topology) — let it resolve first (watch-wave.sh $state ${slug_dir%%-*} ${slug_dir#*-} $s_id)" >&2
+      branch_note=""
+      if [ "$mode" = branch ]; then branch_note=" (branch mode)"; fi
+      echo "REFUSED: plan $s_id is still executing in the $target worktree (sequential topology)$branch_note — let it resolve first (watch-wave.sh $state ${slug_dir%%-*} ${slug_dir#*-} $s_id)" >&2
       exit 1
     fi
   done
@@ -96,26 +101,49 @@ if [ -e "$run_dir/$id.running" ] || [ -e "$run_dir/$id.done" ] || [ -e "$run_dir
   echo "refused: run '$id' already has a marker in $run_dir (use --force to redispatch)" >&2; exit 1
 fi
 
-agent_wt="$(git worktree list --porcelain | awk -v want="refs/heads/$agent" '
-  /^worktree / { wt = substr($0, 10); bra = ""; det = 0 }
-  /^detached/  { det = 1 }
-  /^branch /   { bra = substr($0, 8) }
-  bra == want && !det { print wt; exit }
-')"   # an existing checkout of the agent branch wins — idempotence across base moves
-if [ -n "$agent_wt" ]; then
-  [ -f "$tgt_dir/fork-base" ] || git merge-base "$agent" "$target" > "$tgt_dir/fork-base"
-  fork_note="reused $target worktree (branch $agent)"
-elif git rev-parse --verify --quiet "refs/heads/$agent" >/dev/null; then
-  git worktree add --quiet "$tgt_wt" "$agent"
-  [ -f "$tgt_dir/fork-base" ] || git merge-base "$agent" "$target" > "$tgt_dir/fork-base"
-  rm -f "$tgt_dir/merge-attempts"
-  fork_note="re-attached branch $agent (fork base re-derived)"
+agent_wt=""
+if [ "$mode" = branch ]; then
+  # Branch mode (DISP-04): no agent worktree — the executor works on the agent
+  # branch in the MAIN CHECKOUT. The repo switches branches during the run:
+  # invasiveness accepted (phase-05 Decision 4). Requires a clean main checkout
+  # (untracked files are fine — a pending SUMMARY is the gate's to commit).
+  dirty="$(git -C "$root" status --porcelain)"
+  if [ -n "$dirty" ] && printf '%s\n' "$dirty" | grep -qv '^??'; then
+    echo "REFUSED: branch mode needs a clean main checkout (tracked changes present at $root) — commit or stash first" >&2; exit 1
+  fi
+  if git rev-parse --verify --quiet "refs/heads/$agent" >/dev/null; then
+    git -C "$root" checkout --quiet "$agent"
+    [ -f "$tgt_dir/fork-base" ] || git merge-base "$agent" "$target" > "$tgt_dir/fork-base"
+    fork_note="re-attached branch $agent in the main checkout"
+  else
+    fork_base="$(git rev-parse "refs/heads/$target")"
+    printf '%s\n' "$fork_base" > "$tgt_dir/fork-base"
+    rm -f "$tgt_dir/merge-attempts"
+    git -C "$root" checkout --quiet -b "$agent" "$fork_base"
+    fork_note="forked $target@$(git rev-parse --short "$fork_base") onto the main checkout"
+  fi
 else
-  fork_base="$(git rev-parse "refs/heads/$target")"
-  printf '%s\n' "$fork_base" > "$tgt_dir/fork-base"
-  rm -f "$tgt_dir/merge-attempts"   # fresh agent-branch generation: merge budget restarts
-  git worktree add --quiet -b "$agent" "$tgt_wt" "$fork_base"
-  fork_note="forked $target@$(git rev-parse --short "$fork_base")"
+  agent_wt="$(git worktree list --porcelain | awk -v want="refs/heads/$agent" '
+    /^worktree / { wt = substr($0, 10); bra = ""; det = 0 }
+    /^detached/  { det = 1 }
+    /^branch /   { bra = substr($0, 8) }
+    bra == want && !det { print wt; exit }
+  ')"   # an existing checkout of the agent branch wins — idempotence across base moves
+  if [ -n "$agent_wt" ]; then
+    [ -f "$tgt_dir/fork-base" ] || git merge-base "$agent" "$target" > "$tgt_dir/fork-base"
+    fork_note="reused $target worktree (branch $agent)"
+  elif git rev-parse --verify --quiet "refs/heads/$agent" >/dev/null; then
+    git worktree add --quiet "$tgt_wt" "$agent"
+    [ -f "$tgt_dir/fork-base" ] || git merge-base "$agent" "$target" > "$tgt_dir/fork-base"
+    rm -f "$tgt_dir/merge-attempts"
+    fork_note="re-attached branch $agent (fork base re-derived)"
+  else
+    fork_base="$(git rev-parse "refs/heads/$target")"
+    printf '%s\n' "$fork_base" > "$tgt_dir/fork-base"
+    rm -f "$tgt_dir/merge-attempts"   # fresh agent-branch generation: merge budget restarts
+    git worktree add --quiet -b "$agent" "$tgt_wt" "$fork_base"
+    fork_note="forked $target@$(git rev-parse --short "$fork_base")"
+  fi
 fi
 
 plan_disp="${plan#"$root"/}"
@@ -128,14 +156,26 @@ prompt="$run_dir/$id.prompt.md"
   echo
   echo "## Assignment"
   echo "You are executing plan $id for the shippEdd workflow (attempt $attempt_no of at most 3). Your working tree:"
-  echo "  ${agent_wt:-$tgt_wt}"
-  echo "— the phase's agent worktree for branch $target (branch $agent). It is shared,"
-  echo "sequentially, by this phase's $target-targeting plans: commits from earlier plans"
-  echo "of this phase may already be on the branch — that is prior work to build on,"
-  echo "verified and continued per the idempotence law, never redone or reverted. Make"
-  echo "it your working directory; every implementation change lands inside it. Two"
-  echo "paths outside it are yours to use and nothing else: the plan (read-only) and the"
-  echo "SUMMARY destination (write the file there, never commit it)."
+  if [ "$mode" = branch ]; then
+    echo "  $root"
+    echo "— the repo's MAIN CHECKOUT, switched onto the phase's agent branch $agent"
+    echo "(branch mode: this repo runs executors without worktrees — runs-dir.sh mode"
+    echo "resolved 'branch'). The checkout is shared, sequentially, by this phase's"
+    echo "plans: commits from earlier plans may already be on the branch — prior work"
+    echo "to build on, verified and continued per the idempotence law, never redone."
+    echo "Your tree is the whole repo: implementation changes land ONLY in your tasks'"
+    echo "files; the SUMMARY destination below is written, never committed; STATE.md"
+    echo "and ROADMAP.md are never yours."
+  else
+    echo "  ${agent_wt:-$tgt_wt}"
+    echo "— the phase's agent worktree for branch $target (branch $agent). It is shared,"
+    echo "sequentially, by this phase's $target-targeting plans: commits from earlier plans"
+    echo "of this phase may already be on the branch — that is prior work to build on,"
+    echo "verified and continued per the idempotence law, never redone or reverted. Make"
+    echo "it your working directory; every implementation change lands inside it. Two"
+    echo "paths outside it are yours to use and nothing else: the plan (read-only) and the"
+    echo "SUMMARY destination (write the file there, never commit it)."
+  fi
   echo
   echo "Your spec is the plan: $plan_disp (absolute: $plan). Read it, then walk its"
   echo "task sections in order, one at a time. Implement each task's action exactly"
@@ -191,5 +231,9 @@ printf '%s  attempt %s\n' "$(date -u +%Y-%m-%dT%H:%M:%SZ)" "$attempt_no" >> "$ru
 printf '%s\n' "$target" > "$run_dir/$id.target"
 
 "$shared/dispatch.sh" "$id" "$prompt" --state-dir "$run_dir" ${model[@]+"${model[@]}"}
-printf 'worktree %s (%s)\n' "${agent_wt:-$tgt_wt}" "$fork_note"
+if [ "$mode" = branch ]; then
+  printf 'worktree %s (main checkout, branch mode)\n' "$root"
+else
+  printf 'worktree %s (%s)\n' "${agent_wt:-$tgt_wt}" "$fork_note"
+fi
 printf 'attempt %s/3\n' "$attempt_no"
