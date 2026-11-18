@@ -337,7 +337,7 @@ cmd_pr_body() {  # <target> — stdout prints ONLY the Closes lines (merge-back 
   while IFS=$'\t' read -r pid pf; do
     n="$(find_issue "$(key_plan "$pid")")"
     [ -n "$n" ] || continue
-    st="$(ghm issue view "$n" --json state -q .state 2>/dev/null || true)"
+    st="$(ghm issue view "$n" --json state -q ".state | ascii_downcase" 2>/dev/null || true)"
     [ "$st" = open ] && printf 'Closes #%s\n' "$n"
   done < <(plans_of_target "$want")
   exit 0
@@ -351,7 +351,7 @@ cmd_close_plan() {  # <target> — guarded explicit close: state-checked, idempo
   while IFS=$'\t' read -r pid pf; do
     n="$(find_issue "$(key_plan "$pid")")"
     if [ -z "$n" ]; then note "close-plan: no issue for $pid"; continue; fi
-    st="$(ghm issue view "$n" --json state -q .state 2>/dev/null || true)"
+    st="$(ghm issue view "$n" --json state -q ".state | ascii_downcase" 2>/dev/null || true)"
     if [ "$st" = open ]; then
       ghm issue close "$n" >/dev/null 2>&1 && closed=$((closed+1)) || note "close failed: #$n ($pid)"
     else
@@ -377,7 +377,7 @@ cmd_ship() {  # ship --verdict "<one line from VERIFICATION.md>"
   [ -n "$pn" ] || offline "ship miss: no parent issue for $(key_parent) — nothing to close (never-block)"
   # 1. verdict as the parent's closing comment (D13); an already-closed parent still gets the comment
   if ! ghm issue close "$pn" --comment "${verdict:-shipped}" >/dev/null 2>&1; then
-    st="$(ghm issue view "$pn" --json state -q .state 2>/dev/null || true)"
+    st="$(ghm issue view "$pn" --json state -q ".state | ascii_downcase" 2>/dev/null || true)"
     { [ "$st" = closed ] && ghm issue comment "$pn" --body "${verdict:-shipped}" >/dev/null 2>&1; } \
       || note "parent close/comment failed: #$pn"
   fi
@@ -385,7 +385,7 @@ cmd_ship() {  # ship --verdict "<one line from VERIFICATION.md>"
   local sub n st closed=0
   while read -r n; do
     [ -n "$n" ] || continue
-    st="$(ghm issue view "$n" --json state -q .state 2>/dev/null || true)"
+    st="$(ghm issue view "$n" --json state -q ".state | ascii_downcase" 2>/dev/null || true)"
     if [ "$st" = open ]; then
       ghm issue close "$n" >/dev/null 2>&1 && closed=$((closed+1)) || note "sub-issue close failed: #$n"
     fi
@@ -443,7 +443,7 @@ cmd_backfill() {
   pn="$(find_issue "$(key_parent)")"
   if [ -n "$pn" ]; then
     NUM[parent]="$pn"
-    st="$(ghm issue view "$pn" --json state -q .state 2>/dev/null || true)"
+    st="$(ghm issue view "$pn" --json state -q ".state | ascii_downcase" 2>/dev/null || true)"
     if [ "$st" = open ]; then ghm issue close "$pn" >/dev/null 2>&1 && closedcnt=$((closedcnt+1)) || note "parent close failed: #$pn"
     else already=$((already+1)); fi
   else
@@ -475,7 +475,7 @@ cmd_backfill() {
     n="$(find_issue "$key")"
     if [ -n "$n" ]; then
       NUM["plan:$pid"]="$n"
-      st="$(ghm issue view "$n" --json state -q .state 2>/dev/null || true)"
+      st="$(ghm issue view "$n" --json state -q ".state | ascii_downcase" 2>/dev/null || true)"
       if [ "$st" = open ]; then
         ghm issue close "$n" --comment "shippedd backfill: phase $nn already shipped${sha:+ (merged in ${sha:0:7})}" >/dev/null 2>&1 \
           && closedcnt=$((closedcnt+1)) || note "close failed: $pid #$n"
