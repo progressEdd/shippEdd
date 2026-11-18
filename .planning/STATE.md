@@ -6,7 +6,7 @@ progress: planned
 # State
 
 **Phase:** 04 unattended-implement-loop
-**Status:** executing — wave 1 done (04-01 merged into master); next wave 2: 04-02 (loop mechanics)
+**Status:** executing — waves 1–2 done (04-01, 04-02 merged into master); next wave 3: 04-03 (merge-back rework + selftest)
 **Next:** `/skill:implement` — runs 04-01 first; in a fresh session
 
 <!--
