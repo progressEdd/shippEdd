@@ -113,6 +113,8 @@ Plans:
 - [x] 05-04: bootstrap step 4b placement question — worktree benefits, porcelain prefill, worktree creation, disposition question (DISP-03)
 - [x] 05-05: auto-selftest extended to 12 cases — migration, placement, branch fallback, PR receipt, fake-gh PR, deliberate failure (DISP-06)
 - [x] 05-06: vendored refresh on progressEdd — squash-merge, straggler sweep, byte-parity, required selftest run (DISP-08)
+- [x] 05-FX1: gap fix from verification run 05-verify — bootstrap/README.md lines 21/37 reworded to the shared scripts path (DISP-01)
+- [x] 05-FX2: vendored refresh of the FX1 fix — squash-merge, byte-parity, selftest sanity (DISP-08)
 
 ### Phase 06: github-mirror
 

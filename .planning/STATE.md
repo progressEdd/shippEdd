@@ -6,8 +6,8 @@ progress: planned
 # State
 
 **Phase:** 05 dispatcher-consolidation
-**Status:** review: 1 gap found (DISP-01 partial — bootstrap/README.md straggler) — fix plans 05-FX1, 05-FX2 awaiting execution
-**Next:** `/skill:implement` in a fresh session — FX1 (master) merges master before FX2 (progressEdd refresh)
+**Status:** executed — fix plans 05-FX1 (master) + 05-FX2 (progressEdd) merged; gap 1 closed; awaiting re-verification
+**Next:** `/skill:review` in a fresh session — re-verify takes id 05-verify2
 
 <!--
 STATE.md is the router surface. The frontmatter (next_action, progress) is the
