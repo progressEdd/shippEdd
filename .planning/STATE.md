@@ -1,13 +1,13 @@
 ---
-next_action: /skill:define
-progress: shipped
+next_action: /skill:implement
+progress: planned
 ---
 
 # State
 
-**Phase:** 04 unattended-implement-loop
-**Status:** shipped — VERIFICATION PASSED (8/8 requirements · 13/13 decisions · 14/14 verifies); the AUTO-07 layer-2 gap closed by fix plan 04-FX1, the inaugural auto-mode live run; todos 06 + 07 banked to done
-**Next:** roadmap complete — `/skill:todo` to bank what comes next (or `/skill:define` to mint a new phase)
+**Phase:** 05 dispatcher-consolidation
+**Status:** planned — 6 plans in 4 waves, awaiting execution (approved 2026-11-17; phase 05 dogfoods PR-by-default)
+**Next:** `/skill:implement` in a fresh session — wave 1 opens with 05-01 (suite-root scripts home)
 
 <!--
 STATE.md is the router surface. The frontmatter (next_action, progress) is the

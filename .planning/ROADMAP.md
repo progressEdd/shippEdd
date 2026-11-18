@@ -6,7 +6,7 @@
 
 ## Next up
 
-**none — roadmap complete**
+**Phase 05: dispatcher-consolidation** — define/review/wayfind dispatch through implement's shared $TMPDIR dispatcher; todo 08 rides along
 
 ## Phases
 
@@ -14,6 +14,8 @@
 - [x] **Phase 02: execution-record-rework** — implement records live in SUMMARY frontmatter, not the runs dir; executors own git in per-plan worktrees
 - [x] **Phase 03: skill-polish-sweep** — the three banked todos land: clear-context guidance at phase-boundary handoffs, repo-relative dispatch receipts, and the PENDING-TODO template sourced solely from the skill
 - [x] **Phase 04: unattended-implement-loop** — the two banked todos land: merge-back never halts on the branch delete (todo 06), and opt-in auto mode runs whole phases unattended (todo 07)
+- [ ] **Phase 05: dispatcher-consolidation** — todos 08 + 09 land plus the grilled expansion: suite-root shared scripts, config-driven worktree-aware run placement, PR-by-default disposition, oracle readout — no more `.planning/runs/`
+- [ ] **Phase 06: github-mirror** — decisions captured as GitHub issues/sub-issues via `gh` (opt-in); plans ship as PRs that close their issues; builds on 05's config + `gh` groundwork
 
 ## Phase details
 
@@ -89,6 +91,37 @@ Plans:
 - [x] 04-04: SKILL.md rewrite — auto default, `/skill:implement manual` opt-out, recovery protocol + dossier; README and template sweep (AUTO-02/03/04/05/06/08)
 - [x] 04-05: EXEC-06/07 revised-by annotations + vendored refresh with byte-parity — ran on the transitional per-plan machinery; the inaugural auto-mode live run landed as 04-FX1 (AUTO-05/07/08)
 - [x] 04-FX1: gap fix from verification run 04-verify — 04-05-SUMMARY corrected, REQUIREMENTS AUTO-07 amended, and this plan itself run end-to-end through the refreshed auto loop as the inaugural auto-mode live run (AUTO-07 layer 2)
+
+### Phase 05: dispatcher-consolidation
+
+- **Goal:** one shared dispatcher at the suite-root `scripts/` dir drives every skill; run placement (work context + markers) is config-driven and worktree-aware (bootstrap setup explains the benefits, detects via `git worktree list`, can create a worktree at a user-chosen path; absent config = documented defaults; paths default repo-relative, opt-in absolute); disposition is PR-by-default with receipt fallback; readout is products-first; todo 08's example-leak fix rides the vendored refresh
+- **Depends on:** Phase 02 (shared dispatcher architecture), Phase 04 (auto-mode machinery, oracle precedent, selftest harness)
+- **Requirements:** DISP-01…DISP-08 (minted in REQUIREMENTS.md v5)
+- **Success criteria** (what must be TRUE) — settled by grilling (11 decisions):
+  1. `.agents/skills/shippEdd/scripts/` holds the one dispatcher + one `state-dir.sh`; define/review/wayfind (and bootstrap/todo/wayfind's state-dir.sh copies) reference the new path; no duplicate dispatchers remain
+  2. Dispatching from any skill writes markers/logs/prompts per the config location — never under `.planning/`; review's ship step no longer needs `rm -rf runs/`
+  3. Bootstrap setup asks the placement question (worktree benefits explained, `git worktree list --porcelain` prefill), can create a worktree at a user-chosen abs/rel path, writes `config.json`; absent keys = documented defaults; documented paths stay repo-relative unless config switches to absolute
+  4. Executors' work contexts follow the config: existing-worktree repos place run worktrees under the detected folder; worktree-less repos fall back to a new branch in the main checkout (switching the repo, invasiveness accepted); researcher/verifier stay in the main checkout
+  5. Disposition: PR-by-default at merge-back (`gh pr create`), config opt-in restores auto-merge; no remote/no `gh` ⇒ receipt fallback, the run never fails
+  6. Re-entry reads products first (RESEARCH.md / VERIFICATION.md verdict), REQUIREMENTS.md as tiebreak, markers advisory only — proven by extended `auto-selftest.sh` incl. one deliberate-failure case
+  7. Todo 08's SKILL.md example leak fixed on canonical master, riding the phase-end vendored refresh (squash-merge + byte-parity)
+
+Plans:
+- [ ] 05-01: suite-root `scripts/` home — runs-dir.sh placement resolver (frozen config contract), dispatch.sh + auto-selftest.sh moved, 8 per-skill copies deleted, implement machinery retargeted (DISP-01, DISP-04 layout)
+- [ ] 05-02: dispatch-plan branch mode + merge-back PR-by-default with receipt fallback; implement SKILL.md/README wording incl. todo 08 neutral example (DISP-04, DISP-05, DISP-07)
+- [ ] 05-03: define/review/wayfind/todo onto the shared dispatcher — run-dir prompt homes, products-first re-entry, review drops `rm -rf runs/` (DISP-02)
+- [ ] 05-04: bootstrap step 4b placement question — worktree benefits, porcelain prefill, worktree creation, disposition question (DISP-03)
+- [ ] 05-05: auto-selftest extended to 12 cases — migration, placement, branch fallback, PR receipt, fake-gh PR, deliberate failure (DISP-06)
+- [ ] 05-06: vendored refresh on progressEdd — squash-merge, straggler sweep, byte-parity, required selftest run (DISP-08)
+
+### Phase 06: github-mirror
+
+- **Goal:** opt-in GitHub mirror — define captures decisions as issues/sub-issues via `gh` (thin prose + helper, mirror-not-source-of-truth), implement/review link PRs that close them; exact sub-issue CLI support researched at 06's define time
+- **Depends on:** Phase 05 (config groundwork, PR-by-default flow)
+- **Requirements:** from grilling (at 06's define)
+- **Success criteria:** from grilling (at 06's define)
+
+Plans:
 
 ## Progress
 
