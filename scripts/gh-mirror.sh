@@ -313,13 +313,101 @@ cmd_capture() {
   echo "  retry    $retry"
 }
 
+# --- progress / pr-body / close-plan / ship (MIR-05/06/07) -----------------------
+cmd_progress() {  # <plan-id> <task#> — flip one tasklist line; NEVER fails the task
+  local pid="${1:?progress needs <plan-id> <task#>}" tk="${2:?progress needs <plan-id> <task#>}"
+  preflight
+  refresh_issues
+  local n; n="$(find_issue "$(key_plan "$pid")")"
+  [ -n "$n" ] || offline "progress miss: no issue for lookup key $(key_plan "$pid") (run capture first) — task NOT blocked"
+  local body; body="$(ghm issue view "$n" --json body -q .body 2>/dev/null)" || offline "progress miss: issue view #$n failed — task NOT blocked"
+  printf '%s\n' "$body" | sed "s|^- \[ \] \[$pid\] T$tk |- [x] [$pid] T$tk |" > "$work/flip.md"
+  ghm issue edit "$n" --body-file "$work/flip.md" >/dev/null 2>&1 \
+    && echo "mirror progress: [$pid] T$tk ✓ (issue #$n)" >&2 \
+    || note "tasklist flip failed: [$pid] T$tk (issue #$n) — task NOT blocked"
+  exit 0
+}
+
+cmd_pr_body() {  # <target> — stdout prints ONLY the Closes lines (merge-back embeds stdout in the PR body)
+  local want="${1:?pr-body needs <target>}"
+  preflight
+  refresh_issues
+  local pid pf n st
+  while IFS=$'\t' read -r pid pf; do
+    n="$(find_issue "$(key_plan "$pid")")"
+    [ -n "$n" ] || continue
+    st="$(ghm issue view "$n" --json state -q .state 2>/dev/null || true)"
+    [ "$st" = open ] && printf 'Closes #%s\n' "$n"
+  done < <(plans_of_target "$want")
+  exit 0
+}
+
+cmd_close_plan() {  # <target> — guarded explicit close: state-checked, idempotent, never-block (D19)
+  local want="${1:?close-plan needs <target>}"
+  preflight
+  refresh_issues
+  local pid pf n st closed=0 skipped=0
+  while IFS=$'\t' read -r pid pf; do
+    n="$(find_issue "$(key_plan "$pid")")"
+    if [ -z "$n" ]; then note "close-plan: no issue for $pid"; continue; fi
+    st="$(ghm issue view "$n" --json state -q .state 2>/dev/null || true)"
+    if [ "$st" = open ]; then
+      ghm issue close "$n" >/dev/null 2>&1 && closed=$((closed+1)) || note "close failed: #$n ($pid)"
+    else
+      skipped=$((skipped+1))   # already closed (closing keyword or a prior sweep) — that is the guard
+    fi
+  done < <(plans_of_target "$want")
+  echo "mirror close-plan ($want): closed $closed · already-closed $skipped (guarded, idempotent)" >&2
+  [ "${#misses[@]}" -gt 0 ] && printf 'mirror: %s\n' "${misses[@]}" >&2
+  exit 0
+}
+
+cmd_ship() {  # ship --verdict "<one line from VERIFICATION.md>"
+  local verdict=""
+  while [ $# -gt 0 ]; do
+    case "$1" in
+      --verdict) verdict="${2:?--verdict needs a value}"; shift 2 ;;
+      *) shift ;;
+    esac
+  done
+  preflight
+  refresh_issues
+  local pn; pn="$(find_issue "$(key_parent)")"
+  [ -n "$pn" ] || offline "ship miss: no parent issue for $(key_parent) — nothing to close (never-block)"
+  # 1. verdict as the parent's closing comment (D13); an already-closed parent still gets the comment
+  if ! ghm issue close "$pn" --comment "${verdict:-shipped}" >/dev/null 2>&1; then
+    st="$(ghm issue view "$pn" --json state -q .state 2>/dev/null || true)"
+    { [ "$st" = closed ] && ghm issue comment "$pn" --body "${verdict:-shipped}" >/dev/null 2>&1; } \
+      || note "parent close/comment failed: #$pn"
+  fi
+  # 2. remaining open sub-issues — the sweep-up point (D9)
+  local sub n st closed=0
+  while read -r n; do
+    [ -n "$n" ] || continue
+    st="$(ghm issue view "$n" --json state -q .state 2>/dev/null || true)"
+    if [ "$st" = open ]; then
+      ghm issue close "$n" >/dev/null 2>&1 && closed=$((closed+1)) || note "sub-issue close failed: #$n"
+    fi
+  done < <(ghm issue view "$pn" --json subIssues --jq '.subIssues[].number' 2>/dev/null)
+  # 3. milestone close (gh api PATCH — there is no gh milestone command)
+  local title="Phase $nn: $slug" ms
+  ms="$("$gh_bin" api "repos/$cfg_repo/milestones" --jq ".[] | select(.title==\"$title\") | .number" 2>/dev/null | head -n1)"
+  if [ -n "$ms" ]; then
+    "$gh_bin" api "repos/$cfg_repo/milestones/$ms" -X PATCH -f state=closed >/dev/null 2>&1 \
+      || note "milestone close failed: $title"
+  fi
+  echo "mirror ship $nn-$slug: parent #$pn closed (verdict posted) · $closed sub-issue(s) closed · milestone '$title' closed" >&2
+  [ "${#misses[@]}" -gt 0 ] && printf 'mirror: %s\n' "${misses[@]}" >&2
+  exit 0
+}
+
 # === command dispatcher ===
 case "$cmd" in
   ready)      ready_line ;;
   capture)    cmd_capture "$@" ;;
-  progress)   echo "gh-mirror: progress lands in plan 06-01 task 3 (stub)" >&2 ;;
-  pr-body)    echo "gh-mirror: pr-body lands in plan 06-01 task 3 (stub)" >&2 ;;
-  close-plan) echo "gh-mirror: close-plan lands in plan 06-01 task 3 (stub)" >&2 ;;
-  ship)       echo "gh-mirror: ship lands in plan 06-01 task 3 (stub)" >&2 ;;
+  progress)   cmd_progress "$@" ;;
+  pr-body)    cmd_pr_body "$@" ;;
+  close-plan) cmd_close_plan "$@" ;;
+  ship)       cmd_ship "$@" ;;
   *)          echo "$usage" >&2; exit 2 ;;
 esac
