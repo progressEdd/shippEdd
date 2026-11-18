@@ -49,6 +49,15 @@ git worktree add 02-worktrees/00-experiments 00-experiments
   git worktree add 02-worktrees/experiments experiments
   ```
 
+## The agent/ area
+
+`02-worktrees/agent/<phase>/<target>/` holds the shippEdd workflow's transient executor worktrees (created by `/skill:implement` dispatch, removed by merge-back after a local merge; in PR disposition the branch waits there as the PR head). Nothing under `agent/` is tracked — it may also carry a local, gitignored `pr-to-master.sh` helper plus README for finishing a `PR unavailable` receipt by hand:
+
+```bash
+git push origin agent/<phase>/<target>
+gh pr create --base master --head agent/<phase>/<target>
+```
+
 ## Notes
 
 - Worktree directories are not tracked in git (only this README is)
