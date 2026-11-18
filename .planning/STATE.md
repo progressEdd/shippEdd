@@ -1,13 +1,13 @@
 ---
-next_action: /skill:implement
-progress: planned
+next_action: /skill:define
+progress: shipped
 ---
 
 # State
 
-**Phase:** 05 dispatcher-consolidation
-**Status:** executed — fix plans 05-FX1 (master) + 05-FX2 (progressEdd) merged; gap 1 closed; awaiting re-verification
-**Next:** `/skill:review` in a fresh session — re-verify takes id 05-verify2
+**Phase:** 06 github-mirror
+**Status:** phase 05 dispatcher-consolidation shipped — PASSED (re-verify 05-verify2): 8/8 requirements · 11/11 decisions · 16/16 task verifies · selftest 35 checks ×5 · no gaps
+**Next:** `/skill:define` for Phase 06 github-mirror — in a fresh session
 
 <!--
 STATE.md is the router surface. The frontmatter (next_action, progress) is the

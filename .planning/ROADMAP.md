@@ -6,7 +6,7 @@
 
 ## Next up
 
-**Phase 05: dispatcher-consolidation** — define/review/wayfind dispatch through implement's shared $TMPDIR dispatcher; todo 08 rides along
+**Phase 06: github-mirror** — decisions captured as GitHub issues/sub-issues via `gh` (opt-in); plans ship as PRs that close their issues; builds on 05's config + `gh` groundwork
 
 ## Phases
 
@@ -14,7 +14,7 @@
 - [x] **Phase 02: execution-record-rework** — implement records live in SUMMARY frontmatter, not the runs dir; executors own git in per-plan worktrees
 - [x] **Phase 03: skill-polish-sweep** — the three banked todos land: clear-context guidance at phase-boundary handoffs, repo-relative dispatch receipts, and the PENDING-TODO template sourced solely from the skill
 - [x] **Phase 04: unattended-implement-loop** — the two banked todos land: merge-back never halts on the branch delete (todo 06), and opt-in auto mode runs whole phases unattended (todo 07)
-- [ ] **Phase 05: dispatcher-consolidation** — todos 08 + 09 land plus the grilled expansion: suite-root shared scripts, config-driven worktree-aware run placement, PR-by-default disposition, oracle readout — no more `.planning/runs/`
+- [x] **Phase 05: dispatcher-consolidation** — todos 08 + 09 land plus the grilled expansion: suite-root shared scripts, config-driven worktree-aware run placement, PR-by-default disposition, oracle readout — no more `.planning/runs/`
 - [ ] **Phase 06: github-mirror** — decisions captured as GitHub issues/sub-issues via `gh` (opt-in); plans ship as PRs that close their issues; builds on 05's config + `gh` groundwork
 
 ## Phase details
@@ -133,6 +133,7 @@ Plans:
 | 02 `execution-record-rework` | 6/6 | Shipped | 2026-11-17 |
 | 03 `skill-polish-sweep` | 5/5 | Shipped | 2026-11-17 |
 | 04 `unattended-implement-loop` | 6/6 | Shipped | 2026-11-17 |
+| 05 `dispatcher-consolidation` | 8/8 | Shipped | 2026-11-18 |
 
 <!--
 Conventions:
