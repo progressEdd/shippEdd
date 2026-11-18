@@ -5,7 +5,7 @@ Templates for the shippEdd workflow state dir. The `bootstrap` skill copies this
 - `ROADMAP.md` — phase checkbox list and the "Next up" pointer; the source of truth for what's next. Only `/skill:review` (ship) ticks boxes.
 - `STATE.md` — frontmatter `next_action` / `progress` (the machine-read surface) plus a one-glance status body.
 - `REQUIREMENTS.md` — REQ-ID table mapping every requirement to a phase.
-- `config.json` — workflow toggles, written explicitly as chosen at setup.
+- `config.json` — workflow toggles plus run placement and disposition, written as chosen at setup; every absent key means its documented default: `runs.mode` (`"worktrees"` | `"branch"`; absent → auto-detect: worktrees iff `git worktree list` reports a linked worktree, else branch), `runs.dir` (runs home for markers/logs/prompts and run worktrees; absent → `${TMPDIR:-/tmp}/shippEdd`), `runs.absolute_paths` (absent → false: repo-relative paths), `disposition` (`"pr"` | `"auto-merge"`; absent → pr).
 - `NN-CONTEXT.md` — decisions captured by `/skill:define` grilling for a phase.
 - `NN-RESEARCH.md` — background researcher output for a phase.
 - `NN-0N-PLAN.md` — executable-plan template; the planner instantiates it once per plan: `wave` / `depends_on` / `target` frontmatter + task blocks (`<files>` / `<action>` / `<verify>` / `<acceptance_criteria>`).
