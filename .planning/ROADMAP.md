@@ -6,13 +6,13 @@
 
 ## Next up
 
-**Phase 03: skill-polish-sweep**
+**none — roadmap complete**
 
 ## Phases
 
 - [x] **Phase 01: multi-harness-persona-wiring** — bootstrap works on eight harnesses, not just pi
 - [x] **Phase 02: execution-record-rework** — implement records live in SUMMARY frontmatter, not the runs dir; executors own git in per-plan worktrees
-- [ ] **Phase 03: skill-polish-sweep** — the three banked todos land: clear-context guidance at phase-boundary handoffs, repo-relative dispatch receipts, and the PENDING-TODO template sourced solely from the skill
+- [x] **Phase 03: skill-polish-sweep** — the three banked todos land: clear-context guidance at phase-boundary handoffs, repo-relative dispatch receipts, and the PENDING-TODO template sourced solely from the skill
 
 ## Phase details
 
@@ -75,6 +75,7 @@ Plans:
 |-------|----------------|--------|-----------|
 | 01 `multi-harness-persona-wiring` | 2/2 | Shipped | 2026-11-17 |
 | 02 `execution-record-rework` | 6/6 | Shipped | 2026-11-17 |
+| 03 `skill-polish-sweep` | 5/5 | Shipped | 2026-11-17 |
 
 <!--
 Conventions:
