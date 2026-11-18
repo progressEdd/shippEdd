@@ -45,12 +45,13 @@ Before declaring this plan complete:
 - [ ] <Behavior verification check>
 
 <!--
-Waves run in parallel within a number, sequentially across numbers; depends_on
-lists the plan IDs that must finish first; target names the branch each plan's
-executor forks its worktree from and merges back into. All three are
-precomputed at plan time — /skill:implement reads them from this frontmatter,
-no runtime analysis.
-One executor per plan walks the task sections in order, commits each task
-atomically in its own agent worktree, and writes NN-YY-SUMMARY.md next to this
-file on completion.
+wave/depends_on carry the phase's LOGICAL order — /skill:implement executes
+the phase's plans sequentially in that order (one executor at a time, one
+temp worktree per target branch); target names the branch whose per-target
+agent worktree the plan's executor works in and that the phase merges back
+into at its merge point. All three are precomputed at plan time —
+/skill:implement reads them from this frontmatter, no runtime analysis.
+Each plan's executor walks the task sections in order, commits each task
+atomically inside the phase's per-target worktree, and writes NN-YY-SUMMARY.md
+next to this file on completion.
 -->
