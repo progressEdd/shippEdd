@@ -23,13 +23,13 @@ Fresh context. Your orchestrator session dispatched the executors and read their
 Accept it — with a reason. Review records your words under `## Accepted gaps` in VERIFICATION.md and the gap stops counting against the ship gate. You're never arguing with the verifier; you're overruling it on the record, and the record ships with the phase. If you'd rather fix it, that's option 1: a fix plan through the planner, run by implement, then a re-verify.
 
 **When does the phase actually ship?**
-Only on `## VERIFICATION PASSED` with zero unaccepted gaps — never with an open gap, never on a summary's say-so. Shipping is one gated sequence: state-dir commit (after clearing transient `runs/`), roadmap tick, STATE.md update, then the optional push/PR question. Each step is filesystem-truth; the ship receipt at the end matches git log.
+Only on `## VERIFICATION PASSED` with zero unaccepted gaps — never with an open gap, never on a summary's say-so. Shipping is one gated sequence: state-dir commit, roadmap tick, STATE.md update, then the optional push/PR question. Each step is filesystem-truth; the ship receipt at the end matches git log.
 
 **Why doesn't review just fix the gaps itself?**
 Lane discipline. All implementation flows through implement's wave/merge-back machinery — a gap becomes a fix plan, implement runs it, review re-verifies. The skill that judges the work can't also be the skill that does it, or the verification stops meaning anything.
 
 **How do I check on the verify run?**
-`bash .agents/skills/shippEdd/review/scripts/dispatch.sh --status` lists every run (state, PID alive/dead, log size); `tail <state>/runs/NN-verify.log` streams it. A still-`.running` marker on re-entry gets you a status line and nothing blocks; a dead PID means an abort — review offers cleanup; a `.failed` marker means the verify was blocked (missing input) and review offers inspect or redispatch.
+`bash .agents/skills/shippEdd/scripts/dispatch.sh --status --state-dir <runs home>/<NN>-<slug>` lists the phase's verify runs (state, PID alive/dead, log size); `tail <runs home>/<NN>-<slug>/NN-verify.log` streams it. A still-`.running` marker on re-entry gets you a status line and nothing blocks; a dead PID means an abort — review offers cleanup; a `.failed` marker means the verify was blocked (missing input) and review offers inspect or redispatch.
 
 **What does review do to git?**
 At ship time only, and it's the only skill allowed there: it commits uncommitted state-dir changes iff the state dir is tracked (`git check-ignore` decides — an ignored state dir is bootstrap's decision and is never force-added), optionally pushes/opens a PR (only if `gh` and a remote exist), and optionally files one immediately-closed audit issue (only if `config.json` sets `github.mirror_issues`). Everything else stays local.

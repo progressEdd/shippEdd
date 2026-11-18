@@ -17,6 +17,7 @@
 set -uo pipefail
 
 root="$(git rev-parse --show-toplevel 2>/dev/null || pwd)"
+shared="$(cd "$(dirname "$0")/../.." && pwd)/scripts"
 usage='usage: watch-wave.sh <state-dir> <NN> <slug> <plan-id>... [--timeout <seconds>]'
 state="${1:?$usage}"
 nn="${2:?NN required}"; slug="${3:?slug required}"; shift 3
@@ -30,7 +31,7 @@ while [ $# -gt 0 ]; do
   esac
 done
 
-phase_runs="${TMPDIR:-/tmp}/shippEdd/$nn-$slug"
+phase_runs="$("$shared/runs-dir.sh" home)/$nn-$slug"
 
 status_of() {  # prints executed | blocked | inflight | failed for one plan id
   local id="$1"
