@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# shippEdd auto-loop selftest (AUTO-07, layer 1). Deterministic temp-repo
+# shippEdd cumulative selftest (AUTO-07 layer 1; DISP-06) — moved to the suite-root scripts/ home by phase 05.
 # simulation of the sequential auto loop: mirrors this repo's worktree layout
 # (orchestrator branch at the repo root, target branch in a sibling worktree,
 # per-target agent worktrees under $TMPDIR), copies this skill tree into the
@@ -37,7 +37,7 @@ mkdir -p "$repo/.planning/phases/09-demo" "$repo/.agents/skills"
 cp -R "$skill_src" "$repo/.agents/skills/shippEdd"
 rm -rf "$repo/.agents/skills/shippEdd/.git"   # vendored as plain files — a gitlink copy would read dirty
                                               # once auto-selftest.sh is tracked at the source
-rm -f "$repo/.agents/skills/shippEdd/implement/scripts/auto-selftest.sh"  # never run the copy
+rm -f "$repo/.agents/skills/shippEdd/scripts/auto-selftest.sh"  # never run the copy
 for spec in 09-01:prod 09-02:prod 09-03:prod 09-04:prod 09-05:trunk 09-06:prod; do
   pid_="${spec%%:*}"; tgt_="${spec##*:}"
   printf -- '---\nwave: %s\ndepends_on: []\ntarget: %s\n---\n\n# Plan %s: selftest fixture\n' \
