@@ -25,6 +25,7 @@
 # Usage: gh-mirror.sh <state-dir> <NN> <slug> <command> [args...]
 #   ready                      off | NOREPO | NOGH | VERSION ... | NOAUTH ... | ok <owner/repo>
 #   capture                    idempotent capture/re-sync sweep
+#   backfill                  shipped-history seeding: parent + plan sub-issues created CLOSED, merge SHAs, milestone closed
 #   progress <plan-id> <task#> flip one tasklist line on the plan's issue
 #   pr-body <target>           print `Closes #N` lines for the target's open plan issues
 #   close-plan <target>        guarded explicit close (state-checked, idempotent)
@@ -33,7 +34,7 @@ set -uo pipefail   # NOT -e: never-block is the law; every gh call is guarded
 
 here="$(cd "$(dirname "$0")" && pwd)"
 root="$(git rev-parse --show-toplevel 2>/dev/null || pwd)"
-usage='usage: gh-mirror.sh <state-dir> <NN> <slug> <ready|capture|progress <plan-id> <task#>|pr-body <target>|close-plan <target>|ship --verdict <line>>'
+usage='usage: gh-mirror.sh <state-dir> <NN> <slug> <ready|capture|backfill|progress <plan-id> <task#>|pr-body <target>|close-plan <target>|ship --verdict <line>>'
 state="${1:?$usage}"; nn="${2:?$usage}"; slug="${3:?$usage}"; cmd="${4:?$usage}"
 shift 4 || true
 phase_dir="$root/$state/phases/$nn-$slug"
@@ -401,6 +402,110 @@ cmd_ship() {  # ship --verdict "<one line from VERIFICATION.md>"
   exit 0
 }
 
+# --- backfill: shipped-history seeding (D20, MIR-09 live-proof leg) -------------
+# One parent + plan sub-issues per PAST phase, created CLOSED (the work already
+# merged), each plan issue body carrying that plan's merge-commit SHA resolved
+# from git history; per-phase milestone created closed; NO decision sub-issues;
+# FX plans parent flat under the phase parent (D20 says plans only — no fixes
+# nesting, no decision rows). The merge-commit format evolved across eras, so
+# resolution is a chain (first hit wins):
+#   1. merge(<pid>):                 transitional per-plan gate bubbles (phases 03/04)
+#   2. merge(<nn>-<slug>/<target>):  current per-target gate (04-FX1 onward) — NEWEST
+#                                    match: a later sweep's gate contains all earlier
+#                                    work of that phase on that target (e.g. 05-FX1's
+#                                    master gate contains 05-01..05-05's)
+#   3. (<pid>)                       conventional plan-id commits (replay era, 01/02)
+#   4. <pid>                         bare plan-id mentions (docs-side gate commits)
+#   5. <nn>-<slug>                   phase-named docs commits (last resort, e.g. 02-06)
+# Unresolved -> the body says so and the receipt notes the miss (never-block).
+plan_target() {  # plan_target <plan-file> — frontmatter target (missing = master)
+  local t; t="$(sed -n 's/^target:[[:space:]]*//p' "$1" | head -n1)"
+  printf '%s' "${t:-master}"
+}
+merge_sha() {  # merge_sha <target> <plan-id> — prints "<sha>\t<subject>" (empty if unresolved)
+  local t="$1" pid="$2" out
+  out="$(git log "$t" --merges --grep "merge($pid):" -1 --format='%H%x09%s' 2>/dev/null)"
+  [ -n "$out" ] || out="$(git log "$t" --merges --grep "merge($nn-$slug/$t):" -1 --format='%H%x09%s' 2>/dev/null)"
+  [ -n "$out" ] || out="$(git log "$t" --grep "($pid)" -1 --format='%H%x09%s' 2>/dev/null)"
+  [ -n "$out" ] || out="$(git log "$t" --grep "$pid" -1 --format='%H%x09%s' 2>/dev/null)"
+  [ -n "$out" ] || out="$(git log "$t" --grep "$nn-$slug" -1 --format='%H%x09%s' 2>/dev/null)"
+  printf '%s' "$out"
+}
+cmd_backfill() {
+  preflight
+  local label_ok=0; ensure_label; ensure_milestone
+  tag_args=(); [ "$label_ok" = 1 ] && tag_args+=(--label "$label0")
+  [ "${#ms_args[@]}" -gt 0 ] && tag_args+=("${ms_args[@]}")
+  refresh_issues
+  local created="" closedcnt=0 already=0 pn pid pf key n st tgt sha subj
+
+  # -- parent: goal line; created closed (guarded-closed if it somehow exists open) --
+  pn="$(find_issue "$(key_parent)")"
+  if [ -n "$pn" ]; then
+    NUM[parent]="$pn"
+    st="$(ghm issue view "$pn" --json state -q .state 2>/dev/null || true)"
+    if [ "$st" = open ]; then ghm issue close "$pn" >/dev/null 2>&1 && closedcnt=$((closedcnt+1)) || note "parent close failed: #$pn"
+    else already=$((already+1)); fi
+  else
+    { echo "Phase $nn \`$slug\` — shipped history, backfilled by shippEdd (this work merged before the mirror existed). Local markdown in \`$state/phases/$nn-$slug/\` remains the source of truth."
+      echo; echo "## Goal"; md_section "$context" "Goal"; echo
+      echo "Lookup keys: \`$(key_parent)\`(parent) · \`[$nn] plan <id>\`(plans — backfilled phases carry no decision sub-issues)"
+    } > "$work/bp.md"
+    pn="$(create_issue "$(key_parent)— $(goal_line)" "$work/bp.md")"
+    if [ -n "$pn" ]; then
+      NUM[parent]="$pn"; created="${created:+$created }parent #$pn"
+      ghm issue close "$pn" >/dev/null 2>&1 && closedcnt=$((closedcnt+1)) || note "parent close failed: #$pn"
+    fi
+  fi
+  [ -n "${NUM[parent]:-}" ] || offline "backfill miss: no parent issue for $(key_parent) and creation failed — see notes above"
+
+  # -- plan sub-issues: created closed, body carries the merge SHA --
+  while IFS=$'\t' read -r pid pf; do
+    [ -n "${pid:-}" ] || continue
+    key="$(key_plan "$pid")"
+    tgt="$(plan_target "$pf")"
+    IFS=$'\t' read -r sha subj <<< "$(merge_sha "$tgt" "$pid")"
+    { echo "**Objective:** $(sed -n 's/^\*\*Objective:\*\* //p' "$pf" | head -n1)"
+      echo
+      echo "**Merged in:** ${sha:-not resolvable from git history (no gate bubble or plan-id commit on '$tgt')}"
+      [ -n "$subj" ] && echo "> $subj"
+      echo
+      echo "Created closed by the backfill sweep — this work shipped before the mirror existed · sub-issue of #${NUM[parent]} · lookup key \`$key\`"
+    } > "$work/bplan.md"
+    n="$(find_issue "$key")"
+    if [ -n "$n" ]; then
+      NUM["plan:$pid"]="$n"
+      st="$(ghm issue view "$n" --json state -q .state 2>/dev/null || true)"
+      if [ "$st" = open ]; then
+        ghm issue close "$n" --comment "shippedd backfill: phase $nn already shipped${sha:+ (merged in ${sha:0:7})}" >/dev/null 2>&1 \
+          && closedcnt=$((closedcnt+1)) || note "close failed: $pid #$n"
+      else already=$((already+1)); fi
+    else
+      n="$(create_issue "$key— $(short "$(sed -n 's/^\*\*Objective:\*\* //p' "$pf" | head -n1)")" "$work/bplan.md" --parent "${NUM[parent]}")"
+      if [ -n "$n" ]; then
+        NUM["plan:$pid"]="$n"; created="${created:+$created }plan $pid #$n"
+        ghm issue close "$n" --comment "shippedd backfill: phase $nn already shipped${sha:+ (merged in ${sha:0:7})}" >/dev/null 2>&1 \
+          && closedcnt=$((closedcnt+1)) || note "close failed: $pid #$n"
+      fi
+    fi
+    [ -z "$sha" ] && note "merge SHA unresolved: $pid (target $tgt)"
+  done < <(plans_of_phase)
+
+  # -- milestone created closed (D20) --
+  if [ "${#ms_args[@]}" -gt 0 ]; then
+    local title="Phase $nn: $slug" ms
+    ms="$("$gh_bin" api "repos/$cfg_repo/milestones" --jq ".[] | select(.title==\"$title\") | .number" 2>/dev/null | head -n1)"
+    [ -n "$ms" ] && { "$gh_bin" api "repos/$cfg_repo/milestones/$ms" -X PATCH -f state=closed >/dev/null 2>&1 || note "milestone close failed: $title"; }
+  fi
+
+  echo "mirror backfill $nn-$slug → $cfg_repo (label '$label0'${ms_args[0]:+, milestone ${ms_args[0]#--milestone }} closed)"
+  [ -n "$created" ] && echo "  created  $created  (created closed)"
+  echo "  closed   $closedcnt issue(s) closed this run · $already already closed (idempotent)"
+  [ "${#misses[@]}" -gt 0 ] && printf '  missed   %s\n' "${misses[*]}"
+  echo "  retry    $retry"
+  exit 0
+}
+
 # === command dispatcher ===
 case "$cmd" in
   ready)      ready_line ;;
@@ -409,5 +514,6 @@ case "$cmd" in
   pr-body)    cmd_pr_body "$@" ;;
   close-plan) cmd_close_plan "$@" ;;
   ship)       cmd_ship "$@" ;;
+  backfill)   cmd_backfill "$@" ;;
   *)          echo "$usage" >&2; exit 2 ;;
 esac
