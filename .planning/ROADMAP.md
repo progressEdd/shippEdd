@@ -86,7 +86,7 @@ Plans:
 - [x] 04-01: todo-06 fix — merge-back branch delete via `git -C "$wt"` + temp-repo differential proof (AUTO-01)
 - [x] 04-02: loop mechanics — sequential per-target dispatch-plan.sh (attempt budget, --fix-instructions), new watch-wave.sh, dispatch.sh test hook (AUTO-02/03/05/06)
 - [x] 04-03: per-target merge-back rework (bounded merge budget, idempotent) + auto-selftest.sh — 7-case simulation incl. deliberate failure (AUTO-01/04/05/07)
-- [ ] 04-04: SKILL.md rewrite — auto default, `/skill:implement manual` opt-out, recovery protocol + dossier; README and template sweep (AUTO-02/03/04/05/06/08)
+- [x] 04-04: SKILL.md rewrite — auto default, `/skill:implement manual` opt-out, recovery protocol + dossier; README and template sweep (AUTO-02/03/04/05/06/08)
 - [ ] 04-05: EXEC-06/07 revised-by annotations + vendored refresh with byte-parity — runs as the inaugural auto-mode live run (AUTO-05/07/08)
 
 ## Progress

@@ -6,7 +6,7 @@ progress: planned
 # State
 
 **Phase:** 04 unattended-implement-loop
-**Status:** executing — waves 1–3 done (04-01…04-03 merged into master); next wave 4: 04-04 (SKILL.md auto-mode rewrite)
+**Status:** executing — waves 1–4 done (04-01…04-04 merged into master); final wave 5: 04-05 (EXEC-06/07 annotations + vendored refresh, target progressEdd)
 **Next:** `/skill:implement` — runs 04-01 first; in a fresh session
 
 <!--
