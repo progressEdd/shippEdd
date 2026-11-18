@@ -1,13 +1,13 @@
 ---
-next_action: /skill:review
-progress: executed
+next_action: /skill:implement
+progress: planned
 ---
 
 # State
 
 **Phase:** 04 unattended-implement-loop
-**Status:** executed — 5 plans across 5 waves, merged into their targets in plan order; awaiting review
-**Next:** `/skill:implement` — runs 04-01 first; in a fresh session
+**Status:** review: 1 gap found — fix plans 04-FX1 awaiting execution
+**Next:** `/skill:implement` — runs 04-FX1 (wave 6); in a fresh session
 
 <!--
 STATE.md is the router surface. The frontmatter (next_action, progress) is the
