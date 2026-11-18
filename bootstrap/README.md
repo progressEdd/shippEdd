@@ -18,7 +18,7 @@ Nothing else: no packages, no build step. Markdown plus one bash script.
 ## Common questions
 
 **Can I move the state dir later?**
-Yes — edit `state_dir` in `.pi/planning.json` (or export `PLANNING_DIR` for a session) and move the folder. Everything resolves through `scripts/state-dir.sh`; the toggles in `config.json` travel with the state dir.
+Yes — edit `state_dir` in `.pi/planning.json` (or export `PLANNING_DIR` for a session) and move the folder. Everything resolves through `.agents/skills/shippEdd/scripts/state-dir.sh`; the toggles in `config.json` travel with the state dir.
 
 **Can I change run placement or disposition later?**
 Yes — edit `<state>/config.json`: `runs.mode` (`"worktrees"` | `"branch"`; absent = auto-detect: worktrees when `git worktree list` finds a linked worktree, else branch), `runs.dir` (the runs home — markers, logs, prompts, worktrees; absent = `${TMPDIR:-/tmp}/shippEdd`; repo-relative or absolute), `runs.absolute_paths` (`true` makes receipts print absolute paths), and `disposition` (`"pr"` | `"auto-merge"`; absent = pr — merge-back pushes and opens a PR, falling back to a receipt when gh or a remote is absent). Rerunning `/skill:bootstrap` re-asks placement as a single-setting change.
@@ -34,7 +34,7 @@ No. A rerun detects existing state, reports what's missing, and offers to create
 
 ## It's working if
 
-- Running `scripts/state-dir.sh` prints exactly one line — the state dir (`$PLANNING_DIR` → `.pi/planning.json` → `.planning`).
+- Running `.agents/skills/shippEdd/scripts/state-dir.sh` prints exactly one line — the state dir (`$PLANNING_DIR` → `.pi/planning.json` → `.planning`).
 - The state dir contains `ROADMAP.md`, `STATE.md`, `REQUIREMENTS.md`, `config.json`, `README.md`, `todos/`, and `codebase/` (4 stubs) — phase templates live in the skill's `bootstrap/templates/`, never in the state dir.
 - `AGENTS.md` gained a `## Workflow` block naming the state dir and the "phases advance only via explicit skills" rule — with all prior content intact.
 - `.pi/planning.json` exists only if a non-default choice was made.
