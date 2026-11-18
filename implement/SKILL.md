@@ -10,14 +10,14 @@ You are the orchestrator for the execution half of the phase loop. The phase's p
 
 **Auto is the default** — a single visit runs the whole phase: dispatch → watch → gate → recover → … → merge → complete, stopping only at completion, budget exhaustion, or a judgment stop. **`/skill:implement manual` is the opt-out**: it stops after each dispatch (the classic re-entry cadence) and asks — in the grilling format — instead of auto-recovering, at every failure. The mode is the skill's first argument; anything other than `manual` is auto.
 
-`<state>` is the workflow state dir resolved in step 0; all other paths are relative to it or to the repo root. This skill is self-contained: its scripts (`scripts/state-dir.sh`, `scripts/dispatch.sh`, `scripts/dispatch-plan.sh`, `scripts/watch-wave.sh`, `scripts/merge-back.sh`) live in this folder; phase templates live in the skill's own `bootstrap/templates/` (sibling of this skill's folder).
+`<state>` is the workflow state dir resolved in step 0; all other paths are relative to it or to the repo root. The suite's shared scripts (`dispatch.sh`, `state-dir.sh`, `runs-dir.sh`, `auto-selftest.sh`) live at `.agents/skills/shippEdd/scripts/` (repo-relative); this skill's own scripts (`dispatch-plan.sh`, `watch-wave.sh`, `merge-back.sh`) live in this folder; phase templates live in the skill's own `bootstrap/templates/` (sibling of this skill's folder).
 
 ## Ground rules
 
 1. **Orchestrate, don't labor** — executors implement in fresh, detached contexts, inside the phase's per-target worktree. Your session sees dispatch lines, resolution lines, and merge lines — never implementation detail; `watch-wave.sh` does the blocking.
-2. **Artifacts are truth** — plan `NN-YY` is **executed** iff `<state>/phases/<NN>-<slug>/NN-YY-SUMMARY.md` exists with `status: complete` in its frontmatter, and **landed** iff, in addition, its target's log carries the phase's per-target merge commit `merge(<NN>-<slug>/<target>):`. Transient run state in `$TMPDIR` is advisory (liveness, logs, ledgers); when it is missing — wiped tmp, reboot — derive from artifacts, never treat missing transient state as failure. This skill is idempotent and may be re-run at any moment, mid-plan, mid-phase, or after a crash.
+2. **Artifacts are truth** — plan `NN-YY` is **executed** iff `<state>/phases/<NN>-<slug>/NN-YY-SUMMARY.md` exists with `status: complete` in its frontmatter, and **landed** iff, in addition, its target's log carries the phase's per-target merge commit `merge(<NN>-<slug>/<target>):`. Transient run state in the runs home (runs-dir.sh — config-driven, default `${TMPDIR:-/tmp}/shippEdd`) is advisory (liveness, logs, ledgers); when it is missing — wiped tmp, reboot — derive from artifacts, never treat missing transient state as failure. This skill is idempotent and may be re-run at any moment, mid-plan, mid-phase, or after a crash.
 3. **Plan-time data is logical order** — `wave`, `depends_on`, and `target` were precomputed by the planner into each plan's frontmatter (a missing `target` means `master`). You read them as-is and never recompute them; they define the sequential order you execute and the merge points you compute in step 2.
-4. **Sequential by law** — one executor at a time. All of a target's plans share that target's agent worktree (forked from the target HEAD when the loop first dispatches into it; branch `agent/<NN>-<slug>/<target>`), so later same-target plans build on earlier ones' commits. `dispatch-plan.sh` refuses a second live executor in a target worktree — never race it, never work around the refusal.
+4. **Sequential by law** — one executor at a time. All of a target's plans share that target's agent worktree (forked from the target HEAD when the loop first dispatches into it; branch `agent/<NN>-<slug>/<target>`), so later same-target plans build on earlier ones' commits. `dispatch-plan.sh` refuses a second live executor in a target worktree — never race it, never work around the refusal. In branch mode (worktree-less repos, resolved by runs-dir.sh mode) the shared context is the main checkout itself — it switches onto the phase's agent branch while a plan runs; a second live executor is refused the same way.
 5. **Facts from disk, decisions to the user** — anything readable (summaries, run state, git log, STATE.md) is read, never asked about. Questions — manual mode and genuine blocks only — use exactly this format:
 
    ```
@@ -32,7 +32,7 @@ You are the orchestrator for the execution half of the phase loop. The phase's p
 
 ## Step 0 — resolve the state dir
 
-Run `scripts/state-dir.sh`. It prints exactly one line: the state dir path relative to the repo root (`$PLANNING_DIR` env → `.pi/planning.json` `state_dir` → `.planning`).
+Run `.agents/skills/shippEdd/scripts/state-dir.sh`. It prints exactly one line: the state dir path relative to the repo root (`$PLANNING_DIR` env → `.pi/planning.json` `state_dir` → `.planning`).
 
 If that dir lacks both `STATE.md` and `ROADMAP.md`, no workflow state exists. Say:
 
@@ -52,11 +52,11 @@ Read each plan's frontmatter `wave`, `depends_on`, and `target` as written (rule
 
 **Plan-state oracle** — for each plan `NN-YY`, first match wins:
 
-- **Landed** — `NN-YY-SUMMARY.md` with `status: complete`, and `git log <target> --merges --grep "merge(<NN>-<slug>/<target>):"` finds the phase's per-target merge. Done; nothing to do.
+- **Landed** — `NN-YY-SUMMARY.md` with `status: complete`, and `git log <target> --merges --grep "merge(<NN>-<slug>/<target>):"` finds the phase's per-target merge. When disposition is `pr` (the default), merge-back instead opens a pull request — its receipt line (`PR <url> …` or the `PR unavailable` fallback) is the landing record, and the agent branch stays as the PR head until the PR merges. Done; nothing to do.
 - **Executed, awaiting merge-back** — SUMMARY with `status: complete`, its target's phase merge absent. Not dispatchable; it feeds the merge points (step 2) and the gate (step 4).
 - **Blocked** — SUMMARY with `status: blocked`. Read its `deviations`; step 5's recovery owns it (manual mode: the failure question).
 - **Skipped** — the plan is recorded under `## Skipped plans` in the phase's `NN-CONTEXT.md`. Closed; /skill:review catches it.
-- **No SUMMARY** — consult the transient run dir `${TMPDIR:-/tmp}/shippEdd/<NN>-<slug>/NN-YY/` (advisory only; it may not exist):
+- **No SUMMARY** — consult the transient run dir under the runs home (runs-dir.sh — config-driven, default `${TMPDIR:-/tmp}/shippEdd`), `<NN>-<slug>/NN-YY/` (advisory only; it may not exist):
   - `NN-YY.running` with a **live** PID (`kill -0 $(head -n1 …)` succeeds) — in flight; watch it: `bash <skill>/scripts/watch-wave.sh <state> <NN> <slug> NN-YY`.
   - `NN-YY.running` with a **dead** PID, or `NN-YY.failed` — aborted, crashed, or failed; step 5's recovery owns it (read the reason line on `.failed`, the log tail otherwise).
   - Run dir absent — check for an interrupted run: does branch `agent/<NN>-<slug>/<target>` exist with commits, or do any of the plan's task `<files>` paths show uncommitted changes in your checkout? **Auto mode**: an interrupted run is recovered by redispatching with `--force` — the executor verifies and continues the work already done, never redoes it (EXEC-08); only if the on-disk work contradicts the plan (genuine ambiguity) stop and put the EXEC-03 question to the user. **Manual mode**: ask the EXEC-03 question (re-execute / close out manually / mark-and-skip) exactly as before.
@@ -70,15 +70,15 @@ If every plan is landed or skipped — go to step 6.
 Sort the unfinished plans by `wave` ascending, then by plan id — **that list is the execution order**; execute it sequentially, one plan at a time, regardless of wave numbers (waves are logical order, not parallelism).
 
 **Merge points** (AUTO-05) — compute from the frontmatter as-is: a target's agent branch merges
-(a) right before dispatching the first not-yet-executed plan whose `depends_on` names a plan of that target while itself targeting a different branch — the consumer case (e.g. the vendored refresh consuming `master`), or
+(a) right before dispatching the first not-yet-executed plan whose `depends_on` names a plan of that target while itself targeting a different branch — the consumer case (a later plan on a different branch whose `depends_on` names an earlier plan targeting it), or
 (b) when that target's last plan (in the order above) has executed — the phase-end case;
 whichever comes first. A target with all plans already executed merges at the next merge point unconditionally.
 
 Show the structure before dispatching anything:
 
 ```
-order:   04-01 (master) → 04-02 (master) → 04-04 (master) → 04-05 (progressEdd)
-merges:  master before 04-05 (first consumer) · progressEdd at end
+order:   03-01 (main) → 03-02 (main) → 03-03 (docs) → 03-04 (main)
+merges:  main before 03-03 (first consumer) · docs at end
 ```
 
 ## Step 3 — DISPATCH ONE PLAN
@@ -90,7 +90,7 @@ merges:  master before 04-05 (first consumer) · progressEdd at end
    bash <this skill's folder>/scripts/merge-back.sh <state> <NN> <slug> <target>
    ```
 
-   Report its output verbatim. **On halt** (exit 1 with `HALT:` / `DRIFT:` / `CONFLICT:` / `BUDGET:` lines) — step 5's merge recovery.
+   Report its output verbatim. In `pr` disposition a successful merge-back prints `PR <url> …`; a `PR unavailable: …` receipt is a success-shaped fallback (exit 0) — report it and continue; the branch waits for a hand-opened PR or an auto-merge re-run. **On halt** (exit 1 with `HALT:` / `DRIFT:` / `CONFLICT:` / `BUDGET:` lines) — step 5's merge recovery.
 3. Dispatch:
 
    ```
@@ -104,7 +104,7 @@ merges:  master before 04-05 (first consumer) · progressEdd at end
    bash <this skill's folder>/scripts/watch-wave.sh <state> <NN> <slug> NN-YY
    ```
 
-   It blocks (heartbeats every ~60s) and prints one resolution line. Exit 0 → step 4. Exit 2 → step 5. Exit 3 → budget exhausted: build the dossier (step 5) and stop. Exit 4 → timeout: report the run dir `${TMPDIR:-/tmp}/shippEdd/<NN>-<slug>/NN-YY/` and stop — inspection needs a human's eyes (or a fresh judgment pass).
+   It blocks (heartbeats every ~60s) and prints one resolution line. Exit 0 → step 4. Exit 2 → step 5. Exit 3 → budget exhausted: build the dossier (step 5) and stop. Exit 4 → timeout: report the run dir under the runs home (runs-dir.sh — config-driven, default `${TMPDIR:-/tmp}/shippEdd`), `<NN>-<slug>/NN-YY/`, and stop — inspection needs a human's eyes (or a fresh judgment pass).
    **Manual mode**: stop here. Tell the user: re-run `/skill:implement manual` to gate the plan and dispatch the next, or watch with `tail <run dir>/NN-YY.log`.
 
 ## Step 4 — GATE ONE PLAN
@@ -125,9 +125,9 @@ merges:  master before 04-05 (first consumer) · progressEdd at end
 
 **A plan failed or blocked** (watch exit 2/3, or a failed/blocked oracle state):
 
-1. Gather the facts: `tail -n 40 ${TMPDIR:-/tmp}/shippEdd/<NN>-<slug>/NN-YY/NN-YY.log`; the `.failed` marker's reason line (or the SUMMARY's `deviations`); `git -C ${TMPDIR:-/tmp}/shippEdd/<NN>-<slug>/<target>/worktree log --oneline -5` (what already landed).
+1. Gather the facts: `tail -n 40` the run log `<NN>-<slug>/NN-YY/NN-YY.log` under the runs home (runs-dir.sh — config-driven, default `${TMPDIR:-/tmp}/shippEdd`); the `.failed` marker's reason line (or the SUMMARY's `deviations`); `git -C <runs-dir.sh worktree-base>/agent/<NN>-<slug>/<target> log --oneline -5` (what already landed).
 2. **Judgment stop**: if a retry clearly cannot help — the plan is blocked on a missing decision, the spec contradicts itself, the failure is outside the plan's reach — stop now, dossier below; do not burn attempts.
-3. Otherwise write `${TMPDIR:-/tmp}/shippEdd/<NN>-<slug>/NN-YY/fix-<n>.md`: what failed, your diagnosis, and concrete fix instructions for the executor (files, exact changes, what to re-verify).
+3. Otherwise write `<runs home>/<NN>-<slug>/NN-YY/fix-<n>.md`: what failed, your diagnosis, and concrete fix instructions for the executor (files, exact changes, what to re-verify).
 4. Re-dispatch and watch again (step 3): `dispatch-plan.sh NN-YY <plan> <target> --summary-template <tpl> --force --fix-instructions <fix file>`. The machinery refuses the fourth attempt (`BUDGET:`) — respect it: dossier and stop.
 
 **A merge-back halt** (`HALT:`/`DRIFT:`/`CONFLICT:` lines): they name the stranded artifacts and the sanctioned recovery. Perform the git recovery you judge safe — re-record the fork base after legitimate target advance (`git merge-base agent/<NN>-<slug>/<target> <target> > <tgt run dir>/fork-base`), clean or stash unrelated dirt in the target checkout, resolve a trivial conflict by hand in the target checkout — never `branch -D`, never rewriting published history, nothing beyond what the halt names. Then re-run `merge-back.sh` — the same 2-retry/3-attempt budget applies per agent-branch generation, and it refuses the fourth. Exhausted → dossier and stop.
@@ -136,7 +136,7 @@ merges:  master before 04-05 (first consumer) · progressEdd at end
 
 ```
 ⛔ Plan NN-YY (attempt n/3) — auto recovery exhausted   [or: judgment stop — a retry will not help]
-  log:      ${TMPDIR:-/tmp}/shippEdd/<NN>-<slug>/NN-YY/NN-YY.log   (tail below)
+  log:      <runs home>/<NN>-<slug>/NN-YY/NN-YY.log   (tail below)
   reason:   <the .failed marker line, or the SUMMARY's deviations>
   branch:   agent/<NN>-<slug>/<target> — git log --oneline -5
   attempts: <contents of <run dir>/attempts>
