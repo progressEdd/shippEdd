@@ -22,6 +22,7 @@ agent="agent/$nn-$slug/$target"
 tgt_dir="$("$shared/runs-dir.sh" home)/$nn-$slug/$target"
 mode="$("$shared/runs-dir.sh" mode)"
 disposition="$("$shared/runs-dir.sh" disposition)"
+mirror="$shared/gh-mirror.sh"   # MIR-06: closing keywords + guarded close (never-block; absent = no-op)
 
 checkout_of() {  # path of the worktree holding branch $target, or empty
   git worktree list --porcelain | awk -v want="refs/heads/$target" '
@@ -86,13 +87,43 @@ fi
 
 if [ "$disposition" = pr ]; then
   remote="$(git remote | head -n1)"
-  pr_fallback() {  # DISP-05 receipt fallback (decision 11): the run never fails
+  pr_fallback() {  # DISP-05 + MIR-06 receipt fallback (the run never fails); when gh fails but
+    # git push works, push anyway so a human can open the PR (receipt shows the compare URL)
     local why="$1"
+    if [ -n "$remote" ] && git push "$remote" "$agent" 2>/dev/null; then
+      echo "PR unavailable: $why (disposition: pr) — branch pushed; open the PR by hand"
+      echo "  compare: $(compare_url)"
+      echo "  branch $agent pushed to $remote; branch kept (PR head)"
+      if [ -n "$agent_wt" ]; then
+        git worktree remove "$agent_wt" || true
+        git worktree prune
+      fi
+      exit 0
+    fi
     echo "PR unavailable: $why (disposition: pr) — nothing merged, nothing deleted"
     echo "  branch $agent stays${agent_wt:+ (worktree $agent_wt left in place)}"
     echo "  options: open the PR by hand — git push ${remote:-<remote>} $agent && gh pr create --base $target --head $agent"
     echo "           or set \"disposition\": \"auto-merge\" in $state/config.json and re-run merge-back"
     exit 0
+  }
+  compare_url() {  # best-effort web compare URL from the first remote (receipt aid; not gh identity)
+    local u host repo
+    u="$(git remote get-url "$remote" 2>/dev/null || true)"
+    case "$u" in
+      git@*:*)
+        host="${u%%:*}"; host="${host#git@}"
+        repo="${u##*:}" ;;
+      ssh://git@*)
+        host="$(printf '%s' "$u" | sed -e 's|^ssh://git@||' -e 's|[/:].*||')"
+        repo="$(printf '%s' "$u" | sed -e 's|^ssh://git@[^/]*[:/]||')" ;;
+      https://*)
+        host="$(printf '%s' "$u" | sed -e 's|^https://||' -e 's|/.*||')"
+        repo="$(printf '%s' "$u" | sed -e 's|^https://[^/]*/||')" ;;
+      *)
+        printf 'git remote get-url %s' "${remote:-?}"; return ;;
+    esac
+    repo="${repo%.git}"
+    printf 'https://%s/%s/compare/%s...%s' "$host" "$repo" "$target" "$agent"
   }
   command -v gh >/dev/null 2>&1 || pr_fallback "gh CLI not found"
   [ -n "$remote" ] || pr_fallback "no git remote"
@@ -102,9 +133,18 @@ if [ "$disposition" = pr ]; then
     exit 0
   fi
   git push "$remote" "$agent" || pr_fallback "git push to $remote failed"
+  body="shippEdd merge-back opened this PR (disposition: pr). Agent branch \`$agent\`, forked from \`$target\` at $(git rev-parse --short "$fork_base")."
+  if [ -x "$mirror" ]; then
+    if closes="$(bash "$mirror" "$state" "$nn" "$slug" pr-body "$target" 2>/dev/null)" && [ -n "$closes" ]; then
+      body="$body
+
+Closes the phase's plan issues (GitHub mirror):
+$closes"
+    fi
+  fi
   url="$(gh pr create --base "$target" --head "$agent" \
         --title "Phase $nn-$slug: merge into $target" \
-        --body "shippEdd merge-back opened this PR (disposition: pr). Agent branch \`$agent\`, forked from \`$target\` at $(git rev-parse --short "$fork_base").")" \
+        --body "$body")" \
     || pr_fallback "gh pr create failed"
   if [ -n "$agent_wt" ]; then
     git worktree remove "$agent_wt" \
@@ -134,3 +174,6 @@ git worktree prune
 git -C "$wt" branch -d "$agent" \
   || { echo "HALT: branch $agent could not be deleted after merge — inspect manually" >&2; exit 1; }
 echo "merged $nn-$slug/$target → $target ($(git rev-parse --short "$target")) · worktree removed · branch $agent deleted"
+if [ -x "$mirror" ]; then
+  bash "$mirror" "$state" "$nn" "$slug" close-plan "$target" >&2 || true   # MIR-06: guarded, state-checked, idempotent, never-block
+fi

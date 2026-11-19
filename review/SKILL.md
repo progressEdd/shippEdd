@@ -45,7 +45,7 @@ Read (never ask for) the state:
 - `<state>/STATE.md` — where the loop stands; its body names the current phase (implement set it)
 - `<state>/ROADMAP.md` — this phase's entry, its `Plans:` list, what comes next
 - `<state>/phases/<NN>-<slug>/` — the phase folder: enumerate the `NN-*-PLAN.md` files. Every one is a real plan — placeholder copies are never scaffolded into a phase dir.
-- `<state>/config.json` — `github.mirror_issues` (absent = off)
+- `<state>/config.json` — `github.mirror` (absent = off; the full `github.*` contract is documented in the bootstrap skill's README, Configuration reference)
 
 **Target phase**: the phase named in STATE.md's body; if STATE.md and the phase dir disagree, the dir wins. Shipped-ness derives from state, never a directory location: ROADMAP's phase checkbox ticked or STATE.md's `progress: shipped` means it shipped — recommend `/skill:define` (or `/skill:todo` if the roadmap is complete) and stop.
 
@@ -145,10 +145,14 @@ Find the newest verify run for the phase (highest id suffix) and gate on its pro
    - Pattern: the phase's existing <NN>-<YY>-PLAN.md files — match their task-block shape exactly
    - Template: `.agents/skills/shippEdd/bootstrap/templates/NN-0N-PLAN.md`
 
-   Write one fix plan per gap: <NN>-FX1-PLAN.md, <NN>-FX2-PLAN.md, … continuing the numbering from any FX files already in the phase dir. Frontmatter: wave: <current max wave across the phase's plans> + 1, depends_on: [], target: <the affected plan's target branch>. Same task-block discipline as any plan: exact files, actions, runnable verify commands, acceptance criteria. Fix plans write files only — never STATE.md or ROADMAP.md.
+   Write one fix plan per gap: <NN>-FX1-PLAN.md, <NN>-FX2-PLAN.md, … continuing the numbering from any FX files already in the phase dir. Frontmatter: wave: <current max wave across the phase's plans> + 1, depends_on: [], target: <the affected plan's target branch>, fixes: <the id of the affected plan, e.g. 06-03 — the GitHub mirror nests FX issues under the plan they fix>. Same task-block discipline as any plan: exact files, actions, runnable verify commands, acceptance criteria. Fix plans write files only — never STATE.md or ROADMAP.md.
    ```
 
-   On return, check every gap is covered by a plan (a gap without a plan goes back to the planner), then update `<state>/STATE.md`: `next_action: /skill:implement`, `progress: planned`, body — "review: <N> gaps found — fix plans <ids> awaiting execution". Then:
+   On return, check every gap is covered by a plan (a gap without a plan goes back to the planner).
+
+   **Mirror mint for FX plans (opt-in, never-block)** — iff `github.mirror: true` in `<state>/config.json`: run `bash .agents/skills/shippEdd/scripts/gh-mirror.sh <state> <NN> <slug> capture` once after the fix plans return. It mints each FX plan's sub-issue under the plan its `fixes:` frontmatter names (idempotent — existing issues are only re-synced). Report the receipt's `created` line verbatim; a miss never blocks the fix loop.
+
+   Then update `<state>/STATE.md`: `next_action: /skill:implement`, `progress: planned`, body — "review: <N> gaps found — fix plans <ids> awaiting execution". Then:
 
    > Fix plans ready: `<ids>`. Next: `/skill:implement` to run them — then `/skill:review` again to re-verify.
 
@@ -184,7 +188,13 @@ Runs only on `## VERIFICATION PASSED` or "every gap accepted" — never with an 
    ```
 
    The **phase digest** (PR title/body) is built from the phase's SUMMARY files (frontmatter `provides` + Accomplishments) plus the verification verdict (the counts and any accepted gaps). Title: `Phase <NN>-<slug>: <goal>`.
-6. **Audit issue** — iff `<state>/config.json` has `"github": { "mirror_issues": true }` **and** gh + remote exist: create one issue titled `Phase <NN>-<slug>: shipped` with the digest body, then close it immediately as completed (`gh issue close <n> --reason completed`). It is an audit record, not workflow state — one line in the receipt.
+6. **Mirror ship sweep** — iff `<state>/config.json` has `"github": { "mirror": true }` (absent = off): run
+
+   ```
+   bash .agents/skills/shippEdd/scripts/gh-mirror.sh <state> <NN> <slug> ship --verdict "<the one-line verdict from VERIFICATION.md>"
+   ```
+
+   It posts the verdict as the parent issue's closing comment, closes any still-open decision and plan sub-issues (guarded, state-checked — the sweep-up point), and closes the phase milestone. Never-block: its receipt (or its miss note, when gh/auth is unavailable) is relayed as one line; a mirror failure never fails the ship.
 
 Then present the **ship receipt**:
 
@@ -192,6 +202,7 @@ Then present the **ship receipt**:
 Phase <NN>-<slug> — shipped
   commits   <k> (the phase's merge and docs commits)
   PR        <url, or "—">
+  mirror    <"parent #<N> closed · verdict posted · milestone closed", or "—">
   next up   <next phase — start with /skill:define, or "roadmap complete">
 ```
 
