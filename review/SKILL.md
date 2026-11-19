@@ -99,14 +99,14 @@ Report dispatch.sh's output line to the user verbatim, e.g.:
 dispatched 01-verify (PID 1234) → /tmp/shippEdd/01-auth/01-verify.log
 ```
 
-Then tell the user they can walk away: re-run `/skill:review` at any time — when VERIFICATION.md carries a fresh verdict it reads it and continues from there; products are truth, same as implement. Watching live: `bash .agents/skills/shippEdd/scripts/dispatch.sh --status --state-dir $home/<NN>-<slug>`, `tail $home/<NN>-<slug>/<id>.log`. Stop — never wait, never poll.
+Then tell the user they can walk away: re-run `/skill:review` at any time — when VERIFICATION.md carries a fresh verdict it reads it and continues from there; products are truth, same as implement. Watching live: `bash .agents/skills/shippEdd/scripts/watch-run.sh <state> <NN> <slug> verify <id>` (opt-in, user-run — blocks until the verdict lands; exit 0 done · 2 failed · 4 timeout), `bash .agents/skills/shippEdd/scripts/dispatch.sh --status --state-dir $home/<NN>-<slug>`, `tail $home/<NN>-<slug>/<id>.log`. Stop — never wait, never poll.
 
 ## Step 3 — READOUT (on re-entry, marker `.done`)
 
 Find the newest verify run for the phase (highest id suffix) and gate on its products first:
 
 - **VERIFICATION.md carries a fresh verdict** (a real verdict line, not the template — and newer than the last readout's report if re-entering) — read it, present the digest below, and proceed by its verdict. Markers only refine the picture (a live PID means a NEWER verify is still running).
-- **`.running` with a live PID** — report it as running, show the watch commands (`--status`, `tail`), and stop: re-run `/skill:review` to check again. Nothing waits here.
+- **`.running` with a live PID** — report it as running, show the watch commands (`watch-run.sh verify`, `--status`, `tail`), and stop: re-run `/skill:review` to check again. Nothing waits here.
 - **`.running` with a dead PID** — an aborted or crashed run; an aborted run never flips its marker. Offer cleanup: inspect the log (`tail $home/<NN>-<slug>/<id>.log`), then delete the stale marker — the next `/skill:review` dispatches a fresh verify. Stop.
 - **`.failed`** — the verify couldn't run (a named input was missing). Show the marker's reason line, then:
 
