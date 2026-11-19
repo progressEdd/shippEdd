@@ -178,7 +178,15 @@ Runs only on `## VERIFICATION PASSED` or "every gap accepted" — never with an 
 2. **ROADMAP** — tick the phase checkbox (`- [ ] **Phase <NN>:` → `- [x]`), tick its `Plans:` checkboxes, update its Progress-table row (`<N>/<N>`, `Shipped`, today's date), and advance `## Next up` to the next unchecked phase — or write `**none — roadmap complete**`.
 3. **STATE.md** — frontmatter: `next_action: /skill:define`, `progress: shipped`. Body: the phase, `shipped — <verdict line; accepted gaps if any>`, and the next phase (or "roadmap complete").
 4. **Commit the ship mutations** — same tracked check as (1): `git add -- <state>` and, if anything staged, `git commit -m "chore(<NN>-<slug>): ship — tick roadmap"`.
-5. **Push / PR** — only if `command -v gh` succeeds **and** `git remote` is non-empty; otherwise one line — "no gh or no git remote — commits stay local" — and skip:
+5. **Push / PR** — gated on disposition and change scope, not tooling alone. Resolve the disposition with `bash .agents/skills/shippEdd/scripts/runs-dir.sh disposition` (absent key = `pr` — the same resolver merge-back uses), and the ship's change scope — the paths outside `<state>/` across this phase's commits on the current branch:
+
+   ```bash
+   base="$(git log --grep 'ship — tick roadmap' --format=%H | sed -n 2p)"      # the PREVIOUS phase's ship commit (this phase's own was just made in step 4)
+   [ -n "$base" ] || base="$(git rev-list --max-parents=0 HEAD | tail -n1)"    # first-ever phase: the root commit
+   git diff --name-only "$base"..HEAD -- . ":(exclude)$state"
+   ```
+
+   **Offer the PR question iff the disposition is `pr` AND the scope is non-empty** — planning rides the push; code-carrying ships get PR treatment. Tooling facts shape the recommendation, never the gate: no `git remote` → recommend "neither"; `gh` absent or unauthenticated but a remote exists → recommend "just push":
 
    ```
    ❓ Push and open a PR for this phase?
@@ -188,6 +196,8 @@ Runs only on `## VERIFICATION PASSED` or "every gap accepted" — never with an 
    ```
 
    The **phase digest** (PR title/body) is built from the phase's SUMMARY files (frontmatter `provides` + Accomplishments) plus the verification verdict (the counts and any accepted gaps). Title: `Phase <NN>-<slug>: <goal>`.
+
+   **Otherwise** (disposition `auto-merge`, or a docs-only ship — empty scope): push-first, no question. If `git remote` is empty: one line — "no git remote — commits stay local". Else push the branch (`git push <remote> <branch>`) and report one line — `pushed <branch> — no PR offered (<docs-only ship | disposition auto-merge>)`.
 6. **Mirror ship sweep** — iff `<state>/config.json` has `"github": { "mirror": true }` (absent = off): run
 
    ```
@@ -201,7 +211,7 @@ Then present the **ship receipt**:
 ```
 Phase <NN>-<slug> — shipped
   commits   <k> (the phase's merge and docs commits)
-  PR        <url, or "—">
+  PR        <url, or "— (no PR offered: <docs-only ship | disposition auto-merge>)">
   mirror    <"parent #<N> closed · verdict posted · milestone closed", or "—">
   next up   <next phase — start with /skill:define, or "roadmap complete">
 ```
