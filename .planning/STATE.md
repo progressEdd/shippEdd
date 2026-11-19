@@ -1,13 +1,13 @@
 ---
-next_action: /skill:todo
-progress: shipped
+next_action: /skill:implement
+progress: planned
 ---
 
 # State
 
-**Phase:** 06 github-mirror — shipped (PASSED 10/10 · 20/20 · 16/16; no gaps)
-**Next:** `/skill:todo --promote` to mint **Phase 07** from the four pending todos (10 archive-pruning · 11 shared-run-watcher · 12 ship-pr-offer · 13 mirror-ship live-shape + jq-free helper) — decided 2026-11-18 at 06's ship close-out — then `/skill:define` in a fresh session
-**Note:** todo 13 is medium severity — every future mirror ship hits the 0-closed-sub-issues defect until it lands
+**Phase:** 07 suite-refinements — planned — 4 plans in 3 waves, awaiting execution
+**Next:** `/skill:implement` — runs wave 1 (07-01, 07-02); note: 07-04's preflight expects a merged master PR mid-loop under disposition `pr`
+**Note:** mirror live — parent #62 · D1–D9 #63–#71 · plans #72–#75 · first archive offer fires at phase 10's ship (7 % 5 ≠ 0)
 
 <!--
 STATE.md is the router surface. The frontmatter (next_action, progress) is the
