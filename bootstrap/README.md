@@ -21,7 +21,7 @@ Nothing else: no packages, no build step. Markdown plus one bash script.
 Yes — edit `state_dir` in `.pi/planning.json` (or export `PLANNING_DIR` for a session) and move the folder. Everything resolves through `.agents/skills/shippEdd/scripts/state-dir.sh`; the toggles in `config.json` travel with the state dir.
 
 **Can I change run placement or disposition later?**
-Yes — edit `<state>/config.json`: `runs.mode` (`"worktrees"` | `"branch"`; absent = auto-detect: worktrees when `git worktree list` finds a linked worktree, else branch), `runs.dir` (the runs home — markers, logs, prompts, worktrees; absent = `${TMPDIR:-/tmp}/shippEdd`; repo-relative or absolute), `runs.absolute_paths` (`true` makes receipts print absolute paths), and `disposition` (`"pr"` | `"auto-merge"`; absent = pr — merge-back pushes and opens a PR, falling back to a receipt when gh or a remote is absent). Rerunning `/skill:bootstrap` re-asks placement as a single-setting change.
+Yes — edit `<state>/config.json`: `runs.mode` (`"worktrees"` | `"branch"`; absent = auto-detect: worktrees when `git worktree list` finds a linked worktree, else branch), `runs.dir` (the runs home — markers, logs, prompts, worktrees; absent = `${TMPDIR:-/tmp}/shippEdd`; repo-relative or absolute), `runs.absolute_paths` (`true` makes receipts print absolute paths), and `disposition` (`"pr"` | `"auto-merge"`; absent = pr — merge-back pushes and opens a PR, falling back to a receipt when gh or a remote is absent). The archive cadence is `archive_cadence` (default 5) — review offers the history prune at every multiple of it. Rerunning `/skill:bootstrap` re-asks placement as a single-setting change.
 
 **Can I change the GitHub mirror later?**
 Yes: edit `github.*` in `<state>/config.json` (or rerun `/skill:bootstrap` and pick the mirror setting). Every key is in the Configuration reference above.
@@ -50,6 +50,7 @@ One law covers every key: **absent = its documented default** (JSON can't carry 
 | `runs.dir` | `${TMPDIR:-/tmp}/shippEdd` | runs home — markers, logs, prompts, run worktrees (repo-relative or absolute) |
 | `runs.absolute_paths` | `false` (repo-relative receipts) | print absolute paths in receipts/`--status` |
 | `disposition` | `pr` | how merge-back lands work: `pr` (push + `gh pr create`, receipt fallback) or `auto-merge` (local merge) |
+| `archive_cadence` | `5` | review's ship step offers the RELEASES.md history prune whenever the shipped-phase count hits a multiple of this — ROADMAP clears to live content, superseded REQUIREMENTS versions ride under the release entry, `phases/` folders are never pruned |
 | `github.mirror` | `false` (off) — **opt-in: absent means OFF** (exception #2; the mirror is documentation on top of local markdown, never a source of truth) | the GitHub issues mirror |
 | `github.host` | `github.com` | GitHub host (`*.ghe.com` subdomains use `GH_TOKEN`; a GHES host uses `GH_ENTERPRISE_TOKEN`) |
 | `github.account` | the active account in gh's store | which stored gh account the mirror acts as (resolved via `gh auth token --user <account>`; global gh state is never switched) |

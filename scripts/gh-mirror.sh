@@ -21,6 +21,10 @@
 #   - milestones via gh api (no gh milestone command exists); labels via
 #     list-then-create, never --force (a configured user label is never
 #     restyled)
+#   - bash + gh only (phase 07, todo 13): config reads are a flat-key bash
+#     reader (absent key = documented default; an unparseable config is a
+#     LOUD named receipt, never a silent mirror=off), and saved-JSON parses
+#     ride gh's embedded --jq — the standalone jq(1) binary is not needed
 #
 # Usage: gh-mirror.sh <state-dir> <NN> <slug> <command> [args...]
 #   ready                      off | NOREPO | NOGH | VERSION ... | NOAUTH ... | ok <owner/repo>
@@ -48,15 +52,35 @@ note()    { misses+=("$*"); printf 'mirror: %s\n' "$*" >&2; }
 offline() { printf 'mirror: %s\n' "$*" >&2; exit 0; }   # never-block hard gate (exit 0)
 retry="bash .agents/skills/shippEdd/scripts/gh-mirror.sh $state $nn $slug $cmd"   # repo-relative (POL-02)
 
-# --- config law (MIR-01) --------------------------------------------------------
+# --- config law (MIR-01; jq-free since phase 07 — todo 13: bash + gh only) --------
+# Flat-key bash reader (runs-dir.sh precedent). Limitation, documented: keys
+# match anywhere in the file, so a second object carrying the same key name
+# could shadow it (the labels array is read single-line) — accepted, same law
+# as runs-dir.sh. Absent key = documented default. An unparseable config is
+# LOUD (named receipt, exit 0 — never-block): a silent mirror=off is banned.
 cfg="$root/$state/config.json"
-j() { jq -r "$1" "$cfg" 2>/dev/null || true; }
-mirror_on() { [ "$(j '.github.mirror // false')" = true ]; }
-cfg_host="$(j '.github.host // "github.com"')"
-cfg_account="$(j '.github.account // ""')"
-cfg_repo="$(j '.github.repo // ""')"
-label0="$(j '(.github.labels // ["shippedd"])[0] // "shippedd"')"
-cfg_token_env="$(j '.github.token_env // ""')"
+cfg_sane() {  # absent file = fine (all defaults); a present file must look like JSON
+  [ -f "$cfg" ] || return 0
+  [ -r "$cfg" ] || return 1
+  local o c
+  o="$(grep -o '{' "$cfg" | wc -l)"; c="$(grep -o '}' "$cfg" | wc -l)"
+  [ "$o" -gt 0 ] && [ "$o" -eq "$c" ]
+}
+cfg_guard() {  # runs before ANY config-derived behavior (ready_line + preflight)
+  cfg_sane || offline "config miss: $state/config.json exists but is unreadable or not JSON — the mirror refuses to guess (a silent mirror=off is banned); fix the file, then retry: $retry"
+}
+jstr() {  # jstr <key> — flat string value of "<key>": "<val>"; empty when absent
+  [ -f "$cfg" ] || return 0
+  grep -o "\"$1\"[[:space:]]*:[[:space:]]*\"[^\"]*\"" "$cfg" 2>/dev/null | head -n1 \
+    | sed -e 's/^[^:]*://' -e 's/^[[:space:]]*"//' -e 's/"$//' || true
+}
+mirror_on() { [ -f "$cfg" ] && grep -q '"mirror"[[:space:]]*:[[:space:]]*true' "$cfg"; }
+cfg_host="$(jstr host)";  [ -n "$cfg_host" ] || cfg_host=github.com
+cfg_account="$(jstr account)"
+cfg_repo="$(jstr repo)"
+label0="$(grep -o '"labels"[[:space:]]*:[[:space:]]*\[[^]]*\]' "$cfg" 2>/dev/null | grep -o '"[^"]*"' | sed -n '2p' | sed -e 's/^"//' -e 's/"$//' || true)"
+[ -n "$label0" ] || label0=shippedd
+cfg_token_env="$(jstr token_env)"
 
 gh_bin="$(command -v gh || true)"
 
@@ -87,6 +111,7 @@ resolve_env() {  # exports GH_HOST + the host-appropriate token env; returns 1 o
 }
 
 ready_line() {
+  cfg_guard
   mirror_on      || { echo off; return; }
   [ -n "$cfg_repo" ]   || { echo NOREPO; return; }
   [ -n "$gh_bin" ]     || { echo NOGH;   return; }
@@ -96,6 +121,7 @@ ready_line() {
 }
 
 preflight() {  # every gh-touching command starts here; any failure exits 0 with a receipt
+  cfg_guard
   mirror_on || offline "off — github.mirror is absent/false in $state/config.json; nothing to do"
   [ -n "$cfg_repo" ] || offline "miss: github.repo (OWNER/REPO) is not set in $state/config.json — the helper never infers it from remotes; set it, then retry: $retry"
   [ -n "$gh_bin" ]   || offline "miss: gh CLI not found — install it (https://docs.github.com/en/github-cli/github-cli/quickstart), then retry: $retry"
@@ -109,10 +135,17 @@ ghm() { "$gh_bin" "$@" -R "$cfg_repo"; }   # repo-scoped gh: -R on EVERY call (n
 
 # --- issue identity: stable title lookup keys (MIR-03) ---------------------------
 # NOTE: every key ends with a trailing space — it is load-bearing ([06] D4 must not match [06] D40)
-issues_json="$work/issues.json"
-refresh_issues() { ghm issue list --state all --limit 1000 --json number,title > "$issues_json" 2>/dev/null || printf '[]' > "$issues_json"; }   # --limit: gh's 30/page default silently hides older issues once the tree grows (live-run finding)
-find_issue() {  # find_issue <key prefix> -> prints the issue number, or nothing
-  jq -r --arg k "$1" 'map(select(.title|startswith($k))) | .[0].number // empty' "$issues_json" 2>/dev/null
+issues_tsv="$work/issues.tsv"   # number<TAB>title lines — fetched with gh's embedded --jq (no standalone jq(1) call)
+refresh_issues() {  # ONE gh call per sweep; --limit: gh's 30/page default silently hides older issues (live-run finding)
+  ghm issue list --state all --limit 1000 --json number,title --jq '.[] | "\(.number)\t\(.title)"' > "$issues_tsv" 2>/dev/null || : > "$issues_tsv"
+}
+find_issue() {  # find_issue <key prefix> -> first matching issue number, or nothing (glob prefix — trailing-space keys stay load-bearing)
+  local num title
+  while IFS=$'\t' read -r num title; do
+    case "$title" in "$1"*) printf '%s\n' "$num"; return 0 ;;
+    esac
+  done < "$issues_tsv"
+  return 0
 }
 key_parent()   { printf '[%s] phase %s ' "$nn" "$slug"; }
 key_decision() { printf '[%s] D%s ' "$nn" "$1"; }
@@ -296,7 +329,7 @@ cmd_capture() {
     esac
     ghm issue close "$num" --comment "shippedd re-sync: no longer present in CONTEXT/plans (edited or superseded)" >/dev/null 2>&1 \
       && closedr="$closedr #$num" || note "drift close failed: #$num $t"
-  done < <(jq -r '.[] | "\(.number)\t\(.title)"' "$issues_json")
+  done < "$issues_tsv"
 
   # -- advisory cache write-back (GitHub owns the numbers; these never load-bear) --
   refresh_context_cache "${NUM[parent]:-}" && cached=$((cached+1))
@@ -389,7 +422,7 @@ cmd_ship() {  # ship --verdict "<one line from VERIFICATION.md>"
     if [ "$st" = open ]; then
       ghm issue close "$n" >/dev/null 2>&1 && closed=$((closed+1)) || note "sub-issue close failed: #$n"
     fi
-  done < <(ghm issue view "$pn" --json subIssues --jq '.subIssues[].number' 2>/dev/null)
+  done < <(ghm issue view "$pn" --json subIssues --jq '.subIssues.nodes[].number' 2>/dev/null)   # live shape: subIssues is a connection object {nodes:[…]} — the flat form returned 0 (07-RESEARCH Q3)
   # 3. milestone close (gh api PATCH — there is no gh milestone command)
   local title="Phase $nn: $slug" ms
   ms="$("$gh_bin" api "repos/$cfg_repo/milestones?state=all" --jq ".[] | select(.title==\"$title\") | .number" 2>/dev/null | head -n1)"
