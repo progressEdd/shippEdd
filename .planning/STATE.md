@@ -1,13 +1,13 @@
 ---
-next_action: /skill:review
-progress: executed
+next_action: /skill:define
+progress: shipped
 ---
 
 # State
 
 **Phase:** 06 github-mirror
-**Status:** executed — 6 plans sequential (06-01…06-06), merged per target: master via PR #60 (merged), progressEdd via PR #61 (open, awaiting merge); awaiting review
-**Next:** merge PR #61 on GitHub, then `/skill:review` — in a fresh session (clear this context first; everything durable is on disk)
+**Status:** shipped — PASSED (06-verify-r1): 10/10 requirements · 20/20 decisions · 16/16 task verifies · selftest 55 checks ×2 · live mirror tree verified; no gaps (recorded deviations in VERIFICATION.md Notes)
+**Next:** roadmap complete — `/skill:define` to mint a new phase from a one-line intent, or `/skill:todo` to bank what comes next — in a fresh session
 
 <!--
 STATE.md is the router surface. The frontmatter (next_action, progress) is the
