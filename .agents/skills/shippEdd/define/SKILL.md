@@ -182,9 +182,11 @@ The **completion contract is canonical** — future skills (implement's executor
 
 Dispatch with `bash .agents/skills/shippEdd/scripts/dispatch.sh <id> $home/<NN>-<slug>/<id>.prompt.md --state-dir $home/<NN>-<slug>`, passing `--model <id>` **only if** `.pi/planning.json` has a `models.researcher` entry naming a concrete model id — an absent key (or a tier word like "cheap", which is not a model id) means inherit the session default. Report dispatch.sh's output line to the user verbatim, then **continue the skill without waiting**: step 5 grilling and plan prep proceed while research runs; its findings enter your context only when you read the finished artifact.
 
+**Watching the run (opt-in, user-run — never the skill's)**: `bash .agents/skills/shippEdd/scripts/watch-run.sh <state> <NN> <slug> research <id>` blocks with ~60s heartbeats until the run resolves — exit 0 done (`<NN>-RESEARCH.md` present) · 2 failed (recovery: clear the blocker, redispatch `--force`) · 4 timeout. The same engine watches implement's plan runs (`plan` kind) and review's verify runs (`verify` kind). Watching is a convenience — products are truth, and nothing here waits on the watcher.
+
 **The products gate** — RESEARCH.md is an input to the planner (step 6) and to plan approval (step 7). Products first (markers advisory, for live-watching only):
 - `<NN>-RESEARCH.md` present in the phase folder — research ran; read it and digest three bullets (strongest findings, biggest risk, unanswered questions) into your context; put any decision the findings force to the user in the question format — research recommends, the user decides. Proceed. (A live `.running` marker alongside just means the run is taking its last breath — the artifact is the truth.)
-- RESEARCH.md absent, marker `.running` with a **live** PID — still running: pause; say how to watch it (`bash .agents/skills/shippEdd/scripts/dispatch.sh --status --state-dir $home/<NN>-<slug>`, or `tail $home/<NN>-<slug>/<id>.log`) and that planning resumes the moment RESEARCH.md lands. Do not dispatch the planner without it.
+- RESEARCH.md absent, marker `.running` with a **live** PID — still running: pause; say how to watch it (`bash .agents/skills/shippEdd/scripts/watch-run.sh <state> <NN> <slug> research <id>`, `bash .agents/skills/shippEdd/scripts/dispatch.sh --state-dir $home/<NN>-<slug>`, or `tail $home/<NN>-<slug>/<id>.log`) and that planning resumes the moment RESEARCH.md lands. Do not dispatch the planner without it.
 - RESEARCH.md absent, `.failed` marker or `.running` with a **dead** PID — the run never finished; put recovery to the user (clear the blocker and redispatch with `--force`, or rerun in the foreground).
 - Products ambiguous (markers claim a state the artifacts contradict) — tiebreak against the durable planning docs (REQUIREMENTS.md's rows for this phase), then treat research as not-run and redispatch.
 
@@ -250,7 +252,7 @@ Plan 01-01 — <title>  (wave 1, no deps)
 
 Plus one line of wave structure: `wave 1: 01-01, 01-02 · wave 2: 01-03 (needs 01-01)`.
 
-Approval requires the research digest if research ran: the products gate (step 4) should already have put it in front of the user. If research is somehow still running here (no RESEARCH.md, live marker), pause — show how to check (`bash .agents/skills/shippEdd/scripts/dispatch.sh --status --state-dir $home/<NN>-<slug>`, `tail $home/<NN>-<slug>/<id>.log`) and resume when the marker flips; never approve plans whose research input hasn't landed.
+Approval requires the research digest if research ran: the products gate (step 4) should already have put it in front of the user. If research is somehow still running here (no RESEARCH.md, live marker), pause — show how to check (`bash .agents/skills/shippEdd/scripts/watch-run.sh <state> <NN> <slug> research <id>`, `bash .agents/skills/shippEdd/scripts/dispatch.sh --status --state-dir $home/<NN>-<slug>`, `tail $home/<NN>-<slug>/<id>.log`) and resume when the marker flips; never approve plans whose research input hasn't landed.
 
 ```
 ❓ Approve these plans?
