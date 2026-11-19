@@ -8,12 +8,12 @@ disable-model-invocation: true
 
 You are the orchestrator for the verify→ship half of the phase loop. You dispatch a fresh-context verifier to coverage-check the executed phase, read its report, and — this is your second half — when the verdict is green, ship in the same breath: commit the state dir, tick the roadmap, optionally push and open a PR. Between those halves sits the gap loop: gaps become fix plans written by the planner and executed by `/skill:implement`; you re-verify after. You are the only skill allowed to touch git remotely or mutate roadmap history.
 
-`<state>` is the workflow state dir resolved in step 0; all other paths are relative to it or to the repo root. This skill is self-contained: its scripts (`scripts/state-dir.sh`, `scripts/dispatch.sh`) live in this folder. Gap fixes route through implement's wave/merge-back machinery, never through review.
+`<state>` is the workflow state dir resolved in step 0; all other paths are relative to it or to the repo root. This skill is self-contained: dispatch runs through the suite's shared scripts at `.agents/skills/shippEdd/scripts/` (repo-relative). Gap fixes route through implement's wave/merge-back machinery, never through review.
 
 ## Ground rules
 
 1. **Orchestrate, don't labor** — verification runs in a detached fresh-context run; fix plans are written by the planner; implementation happens in executors. Review itself never implements, never fixes, never merges back. Your session carries the report digest and the ship receipt, never implementation detail.
-2. **Markers are truth** — the verify run's state is its marker in `<state>/runs/`, never session memory. `/skill:review` may be re-run at any moment, mid-verify or mid-gap-loop; it reads state, it doesn't remember it.
+2. **Products are truth** — the verify run's state is its artifact (VERIFICATION.md's verdict line), never session memory; REQUIREMENTS.md is the tiebreak when products are ambiguous; markers in the phase run dir are advisory liveness. `/skill:review` may be re-run at any moment, mid-verify or mid-gap-loop; it reads state, it doesn't remember it.
 3. **Every question uses exactly this format** (identical to bootstrap's, define's, implement's):
 
    ```
@@ -30,7 +30,7 @@ You are the orchestrator for the verify→ship half of the phase loop. You dispa
 
 ## Step 0 — resolve the state dir
 
-Run `scripts/state-dir.sh`. It prints exactly one line: the state dir path relative to the repo root (`$PLANNING_DIR` env → `.pi/planning.json` `state_dir` → `.planning`).
+Run `.agents/skills/shippEdd/scripts/state-dir.sh`. It prints exactly one line: the state dir path relative to the repo root (`$PLANNING_DIR` env → `.pi/planning.json` `state_dir` → `.planning`).
 
 If that dir lacks both `STATE.md` and `ROADMAP.md`, no workflow state exists. Say:
 
@@ -45,7 +45,7 @@ Read (never ask for) the state:
 - `<state>/STATE.md` — where the loop stands; its body names the current phase (implement set it)
 - `<state>/ROADMAP.md` — this phase's entry, its `Plans:` list, what comes next
 - `<state>/phases/<NN>-<slug>/` — the phase folder: enumerate the `NN-*-PLAN.md` files. Every one is a real plan — placeholder copies are never scaffolded into a phase dir.
-- `<state>/config.json` — `github.mirror_issues` (absent = off)
+- `<state>/config.json` — `github.mirror` (absent = off; the full `github.*` contract is documented in the bootstrap skill's README, Configuration reference)
 
 **Target phase**: the phase named in STATE.md's body; if STATE.md and the phase dir disagree, the dir wins. Shipped-ness derives from state, never a directory location: ROADMAP's phase checkbox ticked or STATE.md's `progress: shipped` means it shipped — recommend `/skill:define` (or `/skill:todo` if the roadmap is complete) and stop.
 
@@ -61,11 +61,11 @@ Report a two-line summary (phase, plans with completed SUMMARYs, prior verificat
 
 ## Step 2 — DISPATCH the verifier (background)
 
-**Run id**: `<NN>-verify` if no `<NN>-verify*` marker exists in `<state>/runs/`; otherwise `<NN>-verify<k>` for the smallest `k ≥ 2` with no marker (first re-verify is `NN-verify2`, the next `NN-verify3`, …). The dispatcher's collision guard refuses duplicate ids — never `--force` over an existing verification; `--force` clears markers and is only ever for re-running a `.failed` verify of the same id (step 3).
+**Run id**: `<NN>-verify` if no `<NN>-verify*` marker exists in the phase run dir (`$(bash .agents/skills/shippEdd/scripts/runs-dir.sh home)/<NN>-<slug>/` — same resolution as dispatch, below); otherwise `<NN>-verify<k>` for the smallest `k ≥ 2` with no marker (first re-verify is `NN-verify2`, the next `NN-verify3`, …). The dispatcher's collision guard refuses duplicate ids — never `--force` over an existing verification; `--force` clears markers and is only ever for re-running a `.failed` verify of the same id (step 3).
 
 Template source for the artifact: `.agents/skills/shippEdd/bootstrap/templates/VERIFICATION.md` (repo-relative — the skill's own templates; there is no scaffolded copy). If it is missing, stop and recommend rerunning `/skill:bootstrap` (it repairs the skill folder's templates without touching existing content).
 
-Compose `<state>/runs/<id>.prompt.md` — a fully self-contained prompt (the detached run loads nothing else):
+Resolve `home="$(bash .agents/skills/shippEdd/scripts/runs-dir.sh home)"` (config-driven; default `${TMPDIR:-/tmp}/shippEdd` — transient state never under `<state>/`) and compose `$home/<NN>-<slug>/<id>.prompt.md` — a fully self-contained prompt (the detached run loads nothing else):
 
 ```
 Read .pi/agents/verifier.md and operate as that agent for the task below.
@@ -84,35 +84,36 @@ Artifact: write <state>/phases/<NN>-<slug>/VERIFICATION.md from the skill's temp
 
 ## Completion contract
 1. Write the artifact named above, fully, per its template.
-2. Then run: mv <state>/runs/<id>.running <state>/runs/<id>.done
+2. Then run: mv <run dir>/<id>.running <run dir>/<id>.done   (the phase run dir: <runs home>/<NN>-<slug>/)
 3. If you cannot complete: mv the marker to .failed and append a one-line reason to the marker file.
 Your final message must end with the sentinel: ## VERIFICATION PASSED (or ## VERIFICATION FAILED / ## VERIFICATION BLOCKED)
 ```
 
-Substitute the state dir, phase, REQ-IDs, and run id into every path — keep every path repo-relative (no absolute paths; the detached run starts at the repo root, so relative paths resolve and nothing machine-specific lands in the runs folder). The completion contract is canonical — copied verbatim from the define skill's, with only the run id, the `mv` paths, and the sentinel names substituted. If `.pi/agents/verifier.md` is not installed, stop and say so — the framework's personas travel in `.pi/agents/`.
+Substitute the state dir, phase, REQ-IDs, and run id into every path — keep every path repo-relative (no absolute paths; the detached run starts at the repo root, so relative paths resolve and nothing machine-specific lands in the run dir). The completion contract is canonical — copied verbatim from the define skill's, with only the run id, the `mv` paths, and the sentinel names substituted. If `.pi/agents/verifier.md` is not installed, stop and say so — the framework's personas travel in `.pi/agents/`.
 
-Dispatch with `scripts/dispatch.sh <id> <state>/runs/<id>.prompt.md`, passing `--model <id>` **only if** `.pi/planning.json` has a `models.verifier` entry naming a concrete model id — an absent key (or a tier word like "strong", which is not a model id) means inherit the session default.
+Dispatch with `bash .agents/skills/shippEdd/scripts/dispatch.sh <id> $home/<NN>-<slug>/<id>.prompt.md --state-dir $home/<NN>-<slug>`, passing `--model <id>` **only if** `.pi/planning.json` has a `models.verifier` entry naming a concrete model id — an absent key (or a tier word like "strong", which is not a model id) means inherit the session default.
 
 Report dispatch.sh's output line to the user verbatim, e.g.:
 
 ```
-dispatched 01-verify (PID 1234) → .planning/runs/01-verify.log
+dispatched 01-verify (PID 1234) → /tmp/shippEdd/01-auth/01-verify.log
 ```
 
-Then tell the user they can walk away: re-run `/skill:review` at any time — when the marker has flipped it reads the verdict and continues from there; markers are truth, same as implement. Watching live: `bash <this skill's folder>/scripts/dispatch.sh --status`, `tail <state>/runs/<id>.log`. Stop — never wait, never poll.
+Then tell the user they can walk away: re-run `/skill:review` at any time — when VERIFICATION.md carries a fresh verdict it reads it and continues from there; products are truth, same as implement. Watching live: `bash .agents/skills/shippEdd/scripts/dispatch.sh --status --state-dir $home/<NN>-<slug>`, `tail $home/<NN>-<slug>/<id>.log`. Stop — never wait, never poll.
 
 ## Step 3 — READOUT (on re-entry, marker `.done`)
 
-Find the newest verify run for the phase (highest id suffix) and gate on its marker:
+Find the newest verify run for the phase (highest id suffix) and gate on its products first:
 
+- **VERIFICATION.md carries a fresh verdict** (a real verdict line, not the template — and newer than the last readout's report if re-entering) — read it, present the digest below, and proceed by its verdict. Markers only refine the picture (a live PID means a NEWER verify is still running).
 - **`.running` with a live PID** — report it as running, show the watch commands (`--status`, `tail`), and stop: re-run `/skill:review` to check again. Nothing waits here.
-- **`.running` with a dead PID** — an aborted or crashed run; aborted runs never flip their markers. Offer cleanup: inspect the log (`tail <state>/runs/<id>.log`), then delete the stale marker — the next `/skill:review` dispatches a fresh verify. Stop.
+- **`.running` with a dead PID** — an aborted or crashed run; an aborted run never flips its marker. Offer cleanup: inspect the log (`tail $home/<NN>-<slug>/<id>.log`), then delete the stale marker — the next `/skill:review` dispatches a fresh verify. Stop.
 - **`.failed`** — the verify couldn't run (a named input was missing). Show the marker's reason line, then:
 
   ```
   ❓ Verification couldn't run: <one-line reason from the marker>. What now?
-    ➡️ 1. inspect — show the tail of <state>/runs/<id>.log and decide from there
-      2. redispatch — dispatch.sh <id> <state>/runs/<id>.prompt.md --force (clears the failed marker, fresh verify of the same id)
+    ➡️ 1. inspect — show the tail of $home/<NN>-<slug>/<id>.log and decide from there
+      2. redispatch — bash .agents/skills/shippEdd/scripts/dispatch.sh <id> $home/<NN>-<slug>/<id>.prompt.md --state-dir $home/<NN>-<slug> --force (clears the failed marker, fresh verify of the same id)
   ```
 
 - **`.done`** — read `<state>/phases/<NN>-<slug>/VERIFICATION.md` and present it compactly, never dump it:
@@ -122,6 +123,7 @@ Find the newest verify run for the phase (highest id suffix) and gate on its mar
   - accepted gaps, if any, one line each
 
   If the verdict is PASSED with zero unaccepted gaps → step 5. Anything else → step 4.
+- **Products ambiguous** (markers claim done but no verdict) — tiebreak against REQUIREMENTS.md's rows for this phase, then treat the verify as not-run and redispatch.
 
 ## Step 4 — GAPS
 
@@ -143,10 +145,14 @@ Find the newest verify run for the phase (highest id suffix) and gate on its mar
    - Pattern: the phase's existing <NN>-<YY>-PLAN.md files — match their task-block shape exactly
    - Template: `.agents/skills/shippEdd/bootstrap/templates/NN-0N-PLAN.md`
 
-   Write one fix plan per gap: <NN>-FX1-PLAN.md, <NN>-FX2-PLAN.md, … continuing the numbering from any FX files already in the phase dir. Frontmatter: wave: <current max wave across the phase's plans> + 1, depends_on: [], target: <the affected plan's target branch>. Same task-block discipline as any plan: exact files, actions, runnable verify commands, acceptance criteria. Fix plans write files only — never STATE.md or ROADMAP.md.
+   Write one fix plan per gap: <NN>-FX1-PLAN.md, <NN>-FX2-PLAN.md, … continuing the numbering from any FX files already in the phase dir. Frontmatter: wave: <current max wave across the phase's plans> + 1, depends_on: [], target: <the affected plan's target branch>, fixes: <the id of the affected plan, e.g. 06-03 — the GitHub mirror nests FX issues under the plan they fix>. Same task-block discipline as any plan: exact files, actions, runnable verify commands, acceptance criteria. Fix plans write files only — never STATE.md or ROADMAP.md.
    ```
 
-   On return, check every gap is covered by a plan (a gap without a plan goes back to the planner), then update `<state>/STATE.md`: `next_action: /skill:implement`, `progress: planned`, body — "review: <N> gaps found — fix plans <ids> awaiting execution". Then:
+   On return, check every gap is covered by a plan (a gap without a plan goes back to the planner).
+
+   **Mirror mint for FX plans (opt-in, never-block)** — iff `github.mirror: true` in `<state>/config.json`: run `bash .agents/skills/shippEdd/scripts/gh-mirror.sh <state> <NN> <slug> capture` once after the fix plans return. It mints each FX plan's sub-issue under the plan its `fixes:` frontmatter names (idempotent — existing issues are only re-synced). Report the receipt's `created` line verbatim; a miss never blocks the fix loop.
+
+   Then update `<state>/STATE.md`: `next_action: /skill:implement`, `progress: planned`, body — "review: <N> gaps found — fix plans <ids> awaiting execution". Then:
 
    > Fix plans ready: `<ids>`. Next: `/skill:implement` to run them — then `/skill:review` again to re-verify.
 
@@ -168,7 +174,7 @@ Find the newest verify run for the phase (highest id suffix) and gate on its mar
 
 Runs only on `## VERIFICATION PASSED` or "every gap accepted" — never with an open gap. In order:
 
-1. **Commit the state dir** (iff tracked). First clear transient dispatch state so it can never be committed: `rm -rf <state>/runs` (define/review's dispatchers recreate it on demand — it is not part of the schema). Then `git check-ignore -q <state>` — exit 0 means ignored: skip silently, bootstrap's git policy already decided, never force-add. Otherwise `git add -- <state>` and, if anything staged, `git commit -m "chore(<NN>-<slug>): verification + phase artifacts"`.
+1. **Commit the state dir** (iff tracked). Transient dispatch state lives under the runs home — never in the repo — so there is nothing to clear. `git check-ignore -q <state>` — exit 0 means ignored: skip silently, bootstrap's git policy already decided, never force-add. Otherwise `git add -- <state>` and, if anything staged, `git commit -m "chore(<NN>-<slug>): verification + phase artifacts"`.
 2. **ROADMAP** — tick the phase checkbox (`- [ ] **Phase <NN>:` → `- [x]`), tick its `Plans:` checkboxes, update its Progress-table row (`<N>/<N>`, `Shipped`, today's date), and advance `## Next up` to the next unchecked phase — or write `**none — roadmap complete**`.
 3. **STATE.md** — frontmatter: `next_action: /skill:define`, `progress: shipped`. Body: the phase, `shipped — <verdict line; accepted gaps if any>`, and the next phase (or "roadmap complete").
 4. **Commit the ship mutations** — same tracked check as (1): `git add -- <state>` and, if anything staged, `git commit -m "chore(<NN>-<slug>): ship — tick roadmap"`.
@@ -182,7 +188,13 @@ Runs only on `## VERIFICATION PASSED` or "every gap accepted" — never with an 
    ```
 
    The **phase digest** (PR title/body) is built from the phase's SUMMARY files (frontmatter `provides` + Accomplishments) plus the verification verdict (the counts and any accepted gaps). Title: `Phase <NN>-<slug>: <goal>`.
-6. **Audit issue** — iff `<state>/config.json` has `"github": { "mirror_issues": true }` **and** gh + remote exist: create one issue titled `Phase <NN>-<slug>: shipped` with the digest body, then close it immediately as completed (`gh issue close <n> --reason completed`). It is an audit record, not workflow state — one line in the receipt.
+6. **Mirror ship sweep** — iff `<state>/config.json` has `"github": { "mirror": true }` (absent = off): run
+
+   ```
+   bash .agents/skills/shippEdd/scripts/gh-mirror.sh <state> <NN> <slug> ship --verdict "<the one-line verdict from VERIFICATION.md>"
+   ```
+
+   It posts the verdict as the parent issue's closing comment, closes any still-open decision and plan sub-issues (guarded, state-checked — the sweep-up point), and closes the phase milestone. Never-block: its receipt (or its miss note, when gh/auth is unavailable) is relayed as one line; a mirror failure never fails the ship.
 
 Then present the **ship receipt**:
 
@@ -190,6 +202,7 @@ Then present the **ship receipt**:
 Phase <NN>-<slug> — shipped
   commits   <k> (the phase's merge and docs commits)
   PR        <url, or "—">
+  mirror    <"parent #<N> closed · verdict posted · milestone closed", or "—">
   next up   <next phase — start with /skill:define, or "roadmap complete">
 ```
 

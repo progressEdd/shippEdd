@@ -8,7 +8,7 @@ disable-model-invocation: true
 
 You are the orchestrator for the discuss→plan half of the phase loop. You interview the user, dispatch research and planning to fresh-context subagents, and keep this session lean: decisions enter your context, research and implementation detail do not. You never advance past approval on your own — the user approves the plans, then you name the next command and stop.
 
-`<state>` is the workflow state dir resolved in step 0; all other paths are relative to it or to the repo root. This skill is self-contained: its scripts (`scripts/state-dir.sh`, `scripts/dispatch.sh`) live in this folder, and phase templates come from the skill's own `bootstrap/templates/` (step 2).
+`<state>` is the workflow state dir resolved in step 0; all other paths are relative to it or to the repo root. This skill is self-contained: dispatch runs through the suite's shared scripts at `.agents/skills/shippEdd/scripts/` (repo-relative), and phase templates come from the skill's own `bootstrap/templates/` (step 2).
 
 ## Ground rules
 
@@ -30,7 +30,7 @@ You are the orchestrator for the discuss→plan half of the phase loop. You inte
 
 ## Step 0 — resolve the state dir
 
-Run `scripts/state-dir.sh`. It prints exactly one line: the state dir path relative to the repo root (`$PLANNING_DIR` env → `.pi/planning.json` `state_dir` → `.planning`).
+Run `.agents/skills/shippEdd/scripts/state-dir.sh`. It prints exactly one line: the state dir path relative to the repo root (`$PLANNING_DIR` env → `.pi/planning.json` `state_dir` → `.planning`).
 
 If that dir lacks both `STATE.md` and `ROADMAP.md`, no workflow state exists. Say:
 
@@ -56,7 +56,7 @@ Read (never ask for) the state:
       2. no — stop here
   ```
   On yes: derive a short slug and one-line goal from the answer, append the phase to `## Phases` and a matching `### Phase <NN>` details block (goal, requirements "from grilling", empty `Plans:` list) to ROADMAP, and point `## Next up` at it. `<NN>` is the next integer, zero-padded to two digits. Then continue.
-- **Resume**: if the target phase's folder already exists, read its `NN-CONTEXT.md` decisions table and any `NN-*-PLAN.md` files. Settled decisions are locked — never re-ask them. A phase that already has plans gets one question: replan (your edits go to the planner, step 6) or stop and head for `/skill:implement`.
+- **Resume**: if the target phase's folder already exists, read its `NN-CONTEXT.md` decisions table and any `NN-*-PLAN.md` files. Settled decisions are locked — never re-ask them. A phase that already has plans gets one question: replan (your edits go to the planner, step 6) or stop and head for `/skill:implement`. A resume that edits decisions or plans re-syncs the GitHub mirror at its next approval — step 7's capture sweep IS the re-sync (idempotent, never-block).
 
 Report a two-line summary (phase target, toggles in effect), then scaffold.
 
@@ -153,7 +153,7 @@ Research always runs in an isolated context; your session never carries the rese
 
 ### Background (the recommended path)
 
-Compose a self-contained prompt file at `<state>/runs/<id>.prompt.md`, where the run id is `<NN>-research` (e.g. `01-research`). Background runs load no personas from `.pi/agents/` — a detached `pi --print` run carries its persona in its prompt file. The prompt points at the persona file as the single source of truth (never a copy of it), states the task, and ends with the completion contract:
+Resolve the runs home first: `home="$(bash .agents/skills/shippEdd/scripts/runs-dir.sh home)"` — config-driven, default `${TMPDIR:-/tmp}/shippEdd`; transient run state never lives under `<state>/`. Compose a self-contained prompt file at `$home/<NN>-<slug>/<id>.prompt.md` (the phase run dir), where the run id is `<NN>-research` (e.g. `01-research`). Background runs load no personas from `.pi/agents/` — a detached `pi --print` run carries its persona in its prompt file. The prompt points at the persona file as the single source of truth (never a copy of it), states the task, and ends with the completion contract:
 
 ```
 Read .pi/agents/researcher.md and operate as that agent for the task below.
@@ -173,21 +173,20 @@ Artifact: write your findings to <state>/phases/<NN>-<slug>/<NN>-RESEARCH.md, cr
 
 ## Completion contract
 1. Write the artifact named above, fully, per its template.
-2. Then run: mv <state>/runs/<id>.running <state>/runs/<id>.done
+2. Then run: mv <run dir>/<id>.running <run dir>/<id>.done   (the phase run dir: <runs home>/<NN>-<slug>/)
 3. If you cannot complete: mv the marker to .failed and append a one-line reason to the marker file.
 Your final message must end with the sentinel: ## RESEARCH COMPLETE (or ## RESEARCH BLOCKED)
 ```
 
 The **completion contract is canonical** — future skills (implement's executor waves) copy it verbatim, substituting only the real state dir and run id into the `mv` paths. The run flips its own marker; nothing waits on it or post-processes it.
 
-Dispatch with `scripts/dispatch.sh <id> <state>/runs/<id>.prompt.md`, passing `--model <id>` **only if** `.pi/planning.json` has a `models.researcher` entry naming a concrete model id — an absent key (or a tier word like "cheap", which is not a model id) means inherit the session default. Report dispatch.sh's output line to the user verbatim, then **continue the skill without waiting**: step 5 grilling and plan prep proceed while research runs; its findings enter your context only when you read the finished artifact.
+Dispatch with `bash .agents/skills/shippEdd/scripts/dispatch.sh <id> $home/<NN>-<slug>/<id>.prompt.md --state-dir $home/<NN>-<slug>`, passing `--model <id>` **only if** `.pi/planning.json` has a `models.researcher` entry naming a concrete model id — an absent key (or a tier word like "cheap", which is not a model id) means inherit the session default. Report dispatch.sh's output line to the user verbatim, then **continue the skill without waiting**: step 5 grilling and plan prep proceed while research runs; its findings enter your context only when you read the finished artifact.
 
-**The marker gate** — RESEARCH.md is an input to the planner (step 6) and to plan approval (step 7), so before dispatching the planner, check the run's marker:
-
-- `<state>/runs/<id>.done` — read `NN-RESEARCH.md` and digest three bullets (strongest findings, biggest risk, unanswered questions) into your context; put any decision the findings force to the user in the question format — research recommends, the user decides. Proceed.
-- `.running` with a **live** PID — pause: say research is still running, how to watch it (`bash <this skill's folder>/scripts/dispatch.sh --status`, or `tail <state>/runs/<id>.log`), and that planning resumes the moment the marker flips. Do not dispatch the planner without it.
-- `.failed` — read the one-line reason appended to the marker; put recovery to the user (clear the blocker and redispatch, or rerun in the foreground).
-- `.running` with a **dead** PID — an aborted or crashed run: aborted runs never flip their markers. Offer cleanup: inspect the log, then delete the stale marker and, if wanted, redispatch.
+**The products gate** — RESEARCH.md is an input to the planner (step 6) and to plan approval (step 7). Products first (markers advisory, for live-watching only):
+- `<NN>-RESEARCH.md` present in the phase folder — research ran; read it and digest three bullets (strongest findings, biggest risk, unanswered questions) into your context; put any decision the findings force to the user in the question format — research recommends, the user decides. Proceed. (A live `.running` marker alongside just means the run is taking its last breath — the artifact is the truth.)
+- RESEARCH.md absent, marker `.running` with a **live** PID — still running: pause; say how to watch it (`bash .agents/skills/shippEdd/scripts/dispatch.sh --status --state-dir $home/<NN>-<slug>`, or `tail $home/<NN>-<slug>/<id>.log`) and that planning resumes the moment RESEARCH.md lands. Do not dispatch the planner without it.
+- RESEARCH.md absent, `.failed` marker or `.running` with a **dead** PID — the run never finished; put recovery to the user (clear the blocker and redispatch with `--force`, or rerun in the foreground).
+- Products ambiguous (markers claim a state the artifacts contradict) — tiebreak against the durable planning docs (REQUIREMENTS.md's rows for this phase), then treat research as not-run and redispatch.
 
 ### Foreground
 
@@ -251,7 +250,7 @@ Plan 01-01 — <title>  (wave 1, no deps)
 
 Plus one line of wave structure: `wave 1: 01-01, 01-02 · wave 2: 01-03 (needs 01-01)`.
 
-Approval requires the research digest if research ran: the marker gate (step 4) should already have put it in front of the user. If the run is somehow still `.running` here, pause — show how to check (`scripts/dispatch.sh --status`, `tail <state>/runs/<id>.log`) and resume when the marker flips; never approve plans whose research input hasn't landed.
+Approval requires the research digest if research ran: the products gate (step 4) should already have put it in front of the user. If research is somehow still running here (no RESEARCH.md, live marker), pause — show how to check (`bash .agents/skills/shippEdd/scripts/dispatch.sh --status --state-dir $home/<NN>-<slug>`, `tail $home/<NN>-<slug>/<id>.log`) and resume when the marker flips; never approve plans whose research input hasn't landed.
 
 ```
 ❓ Approve these plans?
@@ -261,6 +260,7 @@ Approval requires the research digest if research ran: the marker gate (step 4) 
 
 On approval:
 
+- **Mirror capture sweep (opt-in, never-block)** — iff `<state>/config.json` has `github.mirror: true` (absent = off): run `bash .agents/skills/shippEdd/scripts/gh-mirror.sh <state> <NN> <slug> capture` and report its receipt verbatim (created/updated/closed/missed + the retry command). A missing `gh`, an auth failure, or a partial sweep NEVER blocks approval — the local markdown is the complete record and the sweep is idempotent (re-running define, or the sweep itself, repairs a partial mirror). The sweep also refreshes the advisory caches — the `issue` column in CONTEXT's decisions table, `issue:` in each plan's frontmatter, the parent number in the CONTEXT header — GitHub owns the issue numbers; local fields are never load-bearing. This same sweep is the drift re-sync and it runs at EVERY approval, fresh or post-edit: edited rows rewrite their issue bodies, dropped rows close theirs with a comment, new rows/plans mint theirs, and FX plans nest under the plan their `fixes:` frontmatter names.
 - `<state>/STATE.md` — frontmatter: `next_action: /skill:implement`, `progress: planned`. Body: the phase name and a one-line status ("planned — N plans in M waves, awaiting execution").
 - `<state>/ROADMAP.md` — fill this phase's `Plans:` list with the approved plan IDs and one-liners. Never tick phase checkboxes — completing phases is `/skill:review`'s job, not yours.
 

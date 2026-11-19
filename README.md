@@ -27,6 +27,10 @@ git subtree push --prefix=.agents/skills/shippEdd https://github.com/progressEdd
 > branch, which embeds `master` at that path and keeps it synced with:
 > `git subtree merge --prefix=.agents/skills/shippEdd master --squash`.
 
+## Configuration reference
+
+Every shippEdd config key — workflow toggles, run placement, merge-back disposition, and the opt-in GitHub mirror (`github.*`) — is documented in one place: [`bootstrap/README.md`](bootstrap/README.md#configuration-reference). Absent keys mean documented defaults; two exceptions are noted there (`workflow.ui_phase` is always written at setup, and `github.mirror` is opt-in — absent means off).
+
 ## Fresh sessions at every handoff
 
-Every skill ends by naming the next command — run it in a fresh session (clear the current context first). That is always safe: nothing load-bearing lives in the conversation. Grilled decisions sit in `.planning/phases/<NN>-<slug>/NN-CONTEXT.md`, execution records in the `NN-YY-SUMMARY.md` files, run state in markers, and `STATE.md` frontmatter (`next_action`, `progress`) is the machine-read router — the next session rebuilds its position from disk alone. Research, verification, and execution already run detached in fresh contexts by design; clearing between skill invocations gives your orchestrating session the same clean start.
+Every skill ends by naming the next command — run it in a fresh session (clear the current context first). That is always safe: nothing load-bearing lives in the conversation. Grilled decisions sit in `.planning/phases/<NN>-<slug>/NN-CONTEXT.md`, execution records in the `NN-YY-SUMMARY.md` files, run state in transient markers under the config-driven runs home (advisory; artifacts are the truth), and `STATE.md` frontmatter (`next_action`, `progress`) is the machine-read router — the next session rebuilds its position from disk alone. Research, verification, and execution already run detached in fresh contexts by design; clearing between skill invocations gives your orchestrating session the same clean start.

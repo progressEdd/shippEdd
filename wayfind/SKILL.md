@@ -8,18 +8,18 @@ disable-model-invocation: true
 
 You are the state reader and flow router of the phase loop. You look at the filesystem — markers, artifacts, roadmap — render where the work stands in a handful of lines, and name the single command to type next. That is all. You never dispatch, never edit STATE.md or ROADMAP, never advance a phase: the loop moves only when the user types the command. A router that drives is a router nobody can trust.
 
-`<state>` is the workflow state dir resolved in step 0; all other paths are relative to it or to the repo root. This skill is self-contained: its scripts (`scripts/state-dir.sh`, `scripts/dispatch.sh`) and its route table (`MAP.md`, same folder) live in this folder.
+`<state>` is the workflow state dir resolved in step 0; all other paths are relative to it or to the repo root. This skill is self-contained: it resolves state through the suite's shared scripts at `.agents/skills/shippEdd/scripts/` (repo-relative); its route table (`MAP.md`) lives in this folder.
 
 ## Ground rules
 
 1. **Read-only by default** — inspect, never advance. The one sanctioned mutation is stale-marker cleanup (a `.running` marker whose PID is dead), and only on the user's explicit choice; even then, inspect-the-log is the recommended first move.
-2. **Markers are truth** — run state comes from `<state>/runs/` markers, loop position from files and ROADMAP. STATE.md is advisory: when it disagrees with the markers, trust the markers and say the drift out loud.
+2. **Products are truth** — run state comes from durable artifacts (RESEARCH.md, VERIFICATION.md verdicts, SUMMARY frontmatter), loop position from files and ROADMAP; REQUIREMENTS.md is the tiebreak when products are ambiguous. Markers under the runs home (config-driven, default `${TMPDIR:-/tmp}/shippEdd`) are advisory — liveness and logs for live-watching. STATE.md is advisory too: when it disagrees with the artifacts, trust the artifacts and say the drift out loud.
 3. **Render, don't dump** — the readout is a digest: checkmarks, one-line run states, one diagnosis. Artifacts get named, never pasted. MAP.md rows are selected for the situation, never listed wholesale.
 4. **Recommend and stop** — end by naming exactly one command. Never run it (outside the confirmed cleanup), never chain, never "while I'm here".
 
 ## Step 0 — resolve the state dir
 
-Run `scripts/state-dir.sh`. It prints exactly one line: the state dir path relative to the repo root (`$PLANNING_DIR` env → `.pi/planning.json` `state_dir` → `.planning`).
+Run `.agents/skills/shippEdd/scripts/state-dir.sh`. It prints exactly one line: the state dir path relative to the repo root (`$PLANNING_DIR` env → `.pi/planning.json` `state_dir` → `.planning`).
 
 If that dir lacks both `STATE.md` and `ROADMAP.md`, no workflow state exists. Say:
 
@@ -31,7 +31,7 @@ Then stop.
 
 Gather, in order — everything is a fact off the disk:
 
-1. **Runs**: `bash <this skill's folder>/scripts/dispatch.sh --status` — one line per marker: id, state, PID, alive/dead, log size.
+1. **Runs**: `bash .agents/skills/shippEdd/scripts/dispatch.sh --status` — scans the runs home (config-driven; default `${TMPDIR:-/tmp}/shippEdd`) — one line per marker: id, state, PID, alive/dead, log size.
 2. **STATE.md** — `next_action`, `progress`, the phase named in the body (advisory only, rule 2).
 3. **ROADMAP.md** — `## Next up`, the phase checkboxes under `## Phases`, the target phase's `Plans:` list.
 4. **Live phases** — directories under `<state>/phases/` (every entry is a phase folder; the schema keeps no other kind).
@@ -68,10 +68,12 @@ Roadmap: next up 02-auth · 1 live phase · 1 shipped
 
    ```
    ❓ Run <id> is marked .running but its PID is dead — aborted or crashed. Clean it up how?
-     ➡️ 1. inspect — show the tail of <state>/runs/<id>.log first
-       2. delete the stale marker <state>/runs/<id>.running
-       3. redispatch — relaunch it from its saved prompt: dispatch.sh <id> <state>/runs/<id>.prompt.md --force
+     ➡️ 1. inspect — show the tail of $home/<id-dir>/<id>.log first
+       2. delete the stale marker $home/<id-dir>/<id>.running
+       3. redispatch — relaunch it from its saved prompt: bash .agents/skills/shippEdd/scripts/dispatch.sh <id> $home/<id-dir>/<id>.prompt.md --state-dir $home/<id-dir> --force
    ```
+
+   Where `$home` is the runs home and `<id-dir>` the phase dir the marker lives in (the status line names it).
 
    Do exactly what was chosen, then continue the diagnosis treating that run as not-running. No second question.
 2. **`.failed` run** — name the owning skill by id shape: `<NN>-research` → `/skill:define`; `<NN>-<YY>` → `/skill:implement`; `<NN>-verify*` → `/skill:review`. Say: `<id> failed — <reason>; /skill:<owner> owns the retry (inspect the log, redispatch --force)`. Failed runs are the owner's lane, not yours.
