@@ -16,10 +16,12 @@
 # via fake gh (DISP-06). Phase 06 adds (13) mirror off + version-floor gate,
 # (14) fake-gh capture sweep (parent/sub-issues/tasklist/caches), (15) tasklist
 # flip + never-block, (16) guarded close + pr-body + merge-back PR-body
-# integration, (17) ship sweep (MIR-09). Prints one line per check; ends with
-# SELFTEST PASSED/FAILED. Touches nothing outside its own $TMPDIR sandbox.
+# integration, (17) ship sweep (MIR-09). Phase 07 adds (18) the jq-free mirror
+# config law: flat-key defaults, labels[0], loud corrupt-config receipt (todo 13).
+# Prints one line per check; ends with SELFTEST PASSED/FAILED. Touches nothing
+# outside its own $TMPDIR sandbox.
 #
-# Usage: auto-selftest.sh   (run from anywhere; needs git + bash + jq)
+# Usage: auto-selftest.sh   (run from anywhere; needs git + bash — jq-free since phase 07, todo 13)
 set -uo pipefail
 
 here="$(cd "$(dirname "$0")" && pwd)"
@@ -444,25 +446,23 @@ case "$1" in
   auth) [ "$2" = token ] && { echo fake-token; exit 0; }; exit 0 ;;
 esac
 if [ "$1" = api ]; then
-  # deviation (06-05): apply the caller's --jq filter to the emitted JSON — real gh
-  # filters server-side; without it ensure_milestone/ship read a raw array as the
-  # number (the fidelity correction 06-01's summary said to seed here)
+  # jq-free fake (phase 07, todo 13): real gh runs --jq server-side (embedded
+  # gojq); the fake answers its KNOWN fixed programs directly from its own
+  # state files — fixture approximation per decision 9; unknown programs fail
+  # loud, never silently
   jqprog=""; a=("$@")
   for ((i=2; i<${#a[@]}; i++)); do [ "${a[$i]}" = "--jq" ] && { jqprog="${a[$((i+1))]}"; break; }; done
-  emit() { if [ -n "$jqprog" ]; then printf '%s\n' "$1" | jq -r "$jqprog"; else printf '%s\n' "$1"; fi; }
   case "$2" in
-    user) echo '{"login":"fake"}' ;;
+    user) echo fake-user ;;
     repos/*/milestones/*) exit 0 ;;
     repos/*/milestones*)
       if [ "${3:-}" = "-f" ]; then
-        printf '7\t%s\n' "${4#title=}" >> "$S/milestones"; emit '{"number":7}'
-      else
-        out="["; f1=1
-        while IFS=$'\t' read -r mn mt; do
-          [ "$f1" = 1 ] && f1=0 || out+=","
-          out+="{\"number\":$mn,\"title\":$(printf '%s' "$mt" | jq -Rn --arg t "$mt" '$t')}"
-        done < "$S/milestones" 2>/dev/null
-        emit "$out]"
+        title="${4#title=}"; printf '7\t%s\n' "$title" >> "$S/milestones"
+        [ "$jqprog" = ".number" ] && echo 7
+      elif [ -n "$jqprog" ]; then
+        # program: .[] | select(.title=="<title>") | .number — answered from the TSV state
+        t="${jqprog#*\"}"; t="${t%%\"*}"
+        awk -F'\t' -v t="$t" '$2==t{print $1; exit}' "$S/milestones" 2>/dev/null
       fi ;;
   esac
   exit 0
@@ -471,13 +471,8 @@ case "$1 $2" in
   "label list")   [ -f "$S/label" ] && echo shippedd || : ;;
   "label create") : > "$S/label" ;;
   "issue list")
-    printf '['; first=1
-    for f in "$S"/issue-*; do
-      [ -f "$f" ] || continue; n="${f##*issue-}"
-      [ "$first" = 1 ] && first=0 || printf ','
-      printf '{"number":%s,"title":%s}' "$n" "$(head -n1 "$f" | jq -Rn --arg t "$(head -n1 "$f")" '$t')"
-    done
-    printf ']\n' ;;
+    # the helper fetches with --jq '.[] | "\(.number)\t\(.title)"' — emit that TSV directly
+    for f in "$S"/issue-*; do [ -f "$f" ] || continue; printf '%s\t%s\n' "${f##*issue-}" "$(head -n1 "$f")"; done ;;
   "issue create")
     title= body= parent=
     while [ $# -gt 0 ]; do case "$1" in
@@ -492,20 +487,14 @@ case "$1 $2" in
     while [ $# -gt 0 ]; do case "$1" in
       --json) what="$2"; shift 2 ;; --jq|-q) jqprog="$2"; shift 2 ;; *) shift ;;
     esac; done
-    case "$what" in
-      body)  out="$(jq -Rs '{body:.}' < "$S/body-$n.md")" ;;
-      state) out="$(printf '{"state":"%s"}' "$(sed -n 2p "$S/issue-$n")")" ;;
-      subIssues)
-        subs="["; f1=1
-        for g in "$S"/issue-*; do
-          gnum="${g##*issue-}"; [ "$(sed -n 3p "$g")" = "$n" ] || continue
-          [ "$f1" = 1 ] && f1=0 || subs+=","; subs+="{\"number\":$gnum}"
-        done
-        subs+="]"; out="{\"subIssues\":$subs}" ;;
-      *) out="{}" ;;
-    esac
-    [ -n "$jqprog" ] && out="$(printf '%s' "$out" | jq -r "$jqprog")"
-    printf '%s\n' "$out" ;;
+    case "$what:$jqprog" in
+      'body:.body')                              cat "$S/body-$n.md" ;;
+      'state:.state | ascii_downcase')           tr '[:upper:]' '[:lower:]' < <(sed -n 2p "$S/issue-$n") ;;
+      'subIssues:.subIssues.nodes[].number')     for g in "$S"/issue-*; do                       # LIVE shape: nested nodes (07-RESEARCH Q3)
+                                                    gnum="${g##*issue-}"; [ "$(sed -n 3p "$g")" = "$n" ] && printf '%s\n' "$gnum"
+                                                  done ;;
+      *) echo "FAKEGH: unimplemented --json/--jq pair: $what / $jqprog" >&2; exit 1 ;;
+    esac ;;
   "issue edit")
     n="$3"; shift 3
     while [ $# -gt 0 ]; do case "$1" in
@@ -592,6 +581,20 @@ grep -qF 'api repos/o/r/milestones/7 -X PATCH -f state=closed' "$tmp/gh-calls" \
   && ok "ship closes the milestone via gh api PATCH" || bad "milestone close missing"
 rm -f "$repo/.planning/config.json" "$repo/.planning/phases/11-mir/11-CONTEXT.md" "$repo/.planning/phases/11-mir/11-01-PLAN.md"
 ok "mirror fixtures restored (absent config = defaults)"
+
+echo "case 18 — jq-free mirror config law: defaults, labels[0], loud corrupt config (todo 13)"
+printf '{\n  "github": {"mirror": true, "repo": "o/r", "labels": ["beta", "shippedd"]}\n}\n' > "$repo/.planning/config.json"
+: > "$tmp/gh-calls"
+out="$(fake .planning 11 mir capture 2>&1)"; rc=$?
+[ "$rc" = 0 ] && grep -qF 'label create beta' "$tmp/gh-calls" \
+  && ok "labels[0] read by the bash reader (label create beta)" || bad "labels read wrong: rc=$rc out=$out calls=$(cat "$tmp/gh-calls")"
+grep -qF -- '--json number,title --jq' "$tmp/gh-calls" \
+  && ok "issue list fetches TSV via gh's embedded --jq (no external filter)" || bad "issue list fetch shape wrong"
+printf 'this is not json\n' > "$repo/.planning/config.json"
+out="$(fake .planning 11 mir ready 2>&1)"; rc=$?
+[ "$rc" = 0 ] && printf '%s' "$out" | grep -qF 'config miss:' \
+  && ok "corrupt config: loud named receipt, exit 0 (never a silent mirror=off)" || bad "corrupt config silent: rc=$rc out=$out"
+rm -f "$repo/.planning/config.json"
 
 echo
 if [ "$fail" -eq 0 ]; then echo "SELFTEST PASSED ($pass checks)"; exit 0; fi
