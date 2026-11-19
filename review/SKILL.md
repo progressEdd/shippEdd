@@ -178,7 +178,63 @@ Runs only on `## VERIFICATION PASSED` or "every gap accepted" — never with an 
 2. **ROADMAP** — tick the phase checkbox (`- [ ] **Phase <NN>:` → `- [x]`), tick its `Plans:` checkboxes, update its Progress-table row (`<N>/<N>`, `Shipped`, today's date), and advance `## Next up` to the next unchecked phase — or write `**none — roadmap complete**`.
 3. **STATE.md** — frontmatter: `next_action: /skill:define`, `progress: shipped`. Body: the phase, `shipped — <verdict line; accepted gaps if any>`, and the next phase (or "roadmap complete").
 4. **Commit the ship mutations** — same tracked check as (1): `git add -- <state>` and, if anything staged, `git commit -m "chore(<NN>-<slug>): ship — tick roadmap"`.
-5. **Push / PR** — gated on disposition and change scope, not tooling alone. Resolve the disposition with `bash .agents/skills/shippEdd/scripts/runs-dir.sh disposition` (absent key = `pr` — the same resolver merge-back uses), and the ship's change scope — the paths outside `<state>/` across this phase's commits on the current branch:
+5. **Archive offer (cadence-gated, suggested — never automatic)** — after the roadmap tick (step 2), count the shipped phases and offer the history prune when the cadence hits:
+
+   ```bash
+   shipped="$(grep -c '^- \[x\] \*\*Phase' <state>/ROADMAP.md)"
+   cadence="$(bash .agents/skills/shippEdd/scripts/runs-dir.sh archive-cadence)"   # absent key = 5 (bootstrap/README.md)
+   ```
+
+   If `shipped > 0` and `$((shipped % cadence))` is `0`, offer (question format):
+
+   ```
+   ❓ <shipped> phases shipped — the archive cadence (<cadence>) hit. Prune the history files?
+     ➡️ 1. yes — append a RELEASES.md release entry (dates, commit hashes, phases), clear ROADMAP to live content, fold superseded REQUIREMENTS versions under the entry
+       2. no — skip this ship; the offer returns at the next cadence hit
+   ```
+
+   On **no** — nothing changes; say one line (`archive offer declined — returns at <next multiple> shipped phases`) and continue at step 6.
+
+   On **yes** — the sweep touches `<state>/ROADMAP.md`, `<state>/REQUIREMENTS.md`, and `<state>/RELEASES.md` ONLY. phases/ folders are never pruned or moved; STATE.md and config.json stay as they are.
+
+   1. **Resolve each archived phase's records** (every phase whose ROADMAP checkbox is ticked). Ship record — one clock, the ship docs commit on progressEdd is the entry's date source:
+
+      ```bash
+      git log progressEdd --grep "chore(<NN>-<slug>): ship — tick roadmap" -1 --format='%h %cI'
+      ```
+
+      Master landing SHA — era-aware, first hit wins, newest match (the `merge_sha()` chain law from `scripts/gh-mirror.sh`, at phase granularity — 07-RESEARCH Q1):
+
+      ```bash
+      git log master --merges --grep "merge(<NN>-<slug>/" -1 --format='%h %cI %s'         # per-phase / per-plan gate bubbles (phases 03+; the newest closes the phase)
+      git log master --merges --grep "agent/<NN>-<slug>/master" -1 --format='%h %cI %s'   # PR-disposition landings (phase 06+ era)
+      git log master --grep "(<NN>-" -1 --format='%h %cI %s'                              # conventional plan-id commits (phases 01/02, linear era)
+      git log master --grep "<NN>-<slug>" -1 --format='%h %cI %s'                         # bare phase-name mentions (last resort)
+      ```
+
+      An unresolved phase is recorded as `not resolvable from git history` — never guessed, never hand-injected.
+   2. **Append the release entry** to `<state>/RELEASES.md` (create the file with a `# Releases: shippEdd` header if absent) as the next `## Release R<k> — <YYYY-MM-DD>` heading, where `k` = the number of existing `## Release` headings + 1 and the date is today's:
+
+      ```markdown
+      ## Release R<k> — <YYYY-MM-DD>
+
+      Pruned at ship of phase <NN>-<slug> — <n> phases archived (cadence <cadence>; `archive_cadence` in <state>/config.json, default 5).
+
+      | Phase | Shipped | Ship commit (progressEdd) | Master landing |
+      |---|---|---|---|
+      | 01-multi-harness-persona-wiring | <date> | <sha> | <sha> — <subject> |
+      | … | … | … | … |
+
+      <details><summary>Superseded REQUIREMENTS versions (v1–v<k-1>)</summary>
+
+      (the superseded `## v<j> requirements` sections, moved verbatim from REQUIREMENTS.md)
+
+      </details>
+      ```
+   3. **Clear ROADMAP to live content only**: delete every ticked `- [x] **Phase` line under `## Phases` (keep unchecked ones); delete every archived phase's `### Phase <NN>:` details block under `## Phase details` (keep live phases' blocks, including their `Plans:` lists); keep only unshipped rows in the `## Progress` table. `## Overview`, `## Next up`, and the conventions comment stay.
+   4. **Fold REQUIREMENTS.md**: keep the `# Requirements: shippEdd` header and the current (highest) `## v<k> requirements` section in place, verbatim; every earlier `## v<j> requirements` section moves verbatim into the release entry's details block (step 2).
+   5. **Commit** (same tracked check as step 1): `git add -- <state>` and, if anything staged, `git commit -m "chore(<NN>-<slug>): archive — release R<k>, ROADMAP pruned to live content"`. Report one line: `archive R<k> — phases <first>..<last> → RELEASES.md`.
+6. **Push / PR** — gated on disposition and change scope, not tooling alone. Resolve the disposition with `bash .agents/skills/shippEdd/scripts/runs-dir.sh disposition` (absent key = `pr` — the same resolver merge-back uses), and the ship's change scope — the paths outside `<state>/` across this phase's commits on the current branch:
 
    ```bash
    base="$(git log --grep 'ship — tick roadmap' --format=%H | sed -n 2p)"      # the PREVIOUS phase's ship commit (this phase's own was just made in step 4)
@@ -198,7 +254,7 @@ Runs only on `## VERIFICATION PASSED` or "every gap accepted" — never with an 
    The **phase digest** (PR title/body) is built from the phase's SUMMARY files (frontmatter `provides` + Accomplishments) plus the verification verdict (the counts and any accepted gaps). Title: `Phase <NN>-<slug>: <goal>`.
 
    **Otherwise** (disposition `auto-merge`, or a docs-only ship — empty scope): push-first, no question. If `git remote` is empty: one line — "no git remote — commits stay local". Else push the branch (`git push <remote> <branch>`) and report one line — `pushed <branch> — no PR offered (<docs-only ship | disposition auto-merge>)`.
-6. **Mirror ship sweep** — iff `<state>/config.json` has `"github": { "mirror": true }` (absent = off): run
+7. **Mirror ship sweep** — iff `<state>/config.json` has `"github": { "mirror": true }` (absent = off): run
 
    ```
    bash .agents/skills/shippEdd/scripts/gh-mirror.sh <state> <NN> <slug> ship --verdict "<the one-line verdict from VERIFICATION.md>"
@@ -211,6 +267,7 @@ Then present the **ship receipt**:
 ```
 Phase <NN>-<slug> — shipped
   commits   <k> (the phase's merge and docs commits)
+  archive   <"R<k> — phases <first>..<last>", or "—">
   PR        <url, or "— (no PR offered: <docs-only ship | disposition auto-merge>)">
   mirror    <"parent #<N> closed · verdict posted · milestone closed", or "—">
   next up   <next phase — start with /skill:define, or "roadmap complete">
