@@ -1,13 +1,13 @@
 ---
-next_action: /skill:implement
-progress: planned
+next_action: /skill:review
+progress: executed
 ---
 
 # State
 
 **Phase:** 06 github-mirror
-**Status:** planned — 6 plans in 4 waves, awaiting execution
-**Next:** `/skill:implement` to run wave 1 (06-01, 06-02) — in a fresh session (clear this context first; everything durable is on disk)
+**Status:** executed — 6 plans sequential (06-01…06-06), merged per target: master via PR #60 (merged), progressEdd via PR #61 (open, awaiting merge); awaiting review
+**Next:** merge PR #61 on GitHub, then `/skill:review` — in a fresh session (clear this context first; everything durable is on disk)
 
 <!--
 STATE.md is the router surface. The frontmatter (next_action, progress) is the

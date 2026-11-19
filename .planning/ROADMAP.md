@@ -124,12 +124,12 @@ Plans:
 - **Success criteria:** from grilling (at 06's define)
 
 Plans:
-- [ ] 06-01: `gh-mirror.sh` suite-root helper — config law, account chain + `-R` always, gh ≥ 2.94 gate, capture/backfill/progress/pr-body/close-plan/ship subcommands, never-block receipts (MIR-02)
-- [ ] 06-02: define approval capture sweep (the re-sync) + bootstrap GitHub setup question + Configuration reference in bootstrap/README.md (MIR-01, MIR-03, MIR-04, MIR-08)
-- [ ] 06-03: implement path — executor per-task progress contract, merge-back closing keywords + push-with-compare fallback + guarded explicit close (MIR-05, MIR-06)
-- [ ] 06-04: review ship sweep — verdict comment, guarded closes, milestone close; FX plans mint as sub-issues via `fixes:` (MIR-07, MIR-04, MIR-08)
-- [ ] 06-05: proof — fake-gh selftest cases 13–17 + inaugural live run: phase-06 self-mirror (open tree) + phases 01–05 backfill (27 plans, created closed with merge-commit SHAs) (MIR-09)
-- [ ] 06-06: vendored refresh on progressEdd — squash-merge + byte-parity + straggler sweep + required selftest (MIR-10)
+- [x] 06-01: `gh-mirror.sh` suite-root helper — config law, account chain + `-R` always, gh ≥ 2.94 gate, capture/backfill/progress/pr-body/close-plan/ship subcommands, never-block receipts (MIR-02)
+- [x] 06-02: define approval capture sweep (the re-sync) + bootstrap GitHub setup question + Configuration reference in bootstrap/README.md (MIR-01, MIR-03, MIR-04, MIR-08)
+- [x] 06-03: implement path — executor per-task progress contract, merge-back closing keywords + push-with-compare fallback + guarded explicit close (MIR-05, MIR-06)
+- [x] 06-04: review ship sweep — verdict comment, guarded closes, milestone close; FX plans mint as sub-issues via `fixes:` (MIR-07, MIR-04, MIR-08)
+- [x] 06-05: proof — fake-gh selftest cases 13–17 + inaugural live run: phase-06 self-mirror (open tree) + phases 01–05 backfill (27 plans, created closed with merge-commit SHAs) (MIR-09)
+- [x] 06-06: vendored refresh on progressEdd — squash-merge + byte-parity + straggler sweep + required selftest (MIR-10)
 
 ## Progress
 
