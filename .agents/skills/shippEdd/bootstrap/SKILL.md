@@ -208,14 +208,21 @@ Defaults write nothing (absent = default). Custom tiers persist to `.pi/planning
     2. ignore it (append the state dir to .gitignore)
 ```
 
-## Step 7 — GITHUB (only if `gh` + remote detected; otherwise skip silently)
+## Step 7 — GITHUB MIRROR (asked every run; facts from step 1)
 
-```
-❓ Mirror phases as GitHub issues when a phase ships?
-  ➡️ 1. skip (local-first; can enable later)
-    2. mirror — `/skill:review` will open/close issues per phase
-```
-If mirror: add `"github": { "mirror_issues": true }` to `<state>/config.json`. Absent key = skip.
+Default is local markdown — the mirror is opt-in documentation on top of it, never a write path back. Step 1 already gathered: `command -v gh`, `gh auth status` (all accounts + which is active), and the git remote. "Primary" below means the preferred documentation surface for the human, nothing more.
+
+❓ Document phases to GitHub as issues while the workflow runs? (shippEdd's GitHub mirror)
+  ➡️ 1. local markdown only (default — can enable later by editing config)
+    2. mirror — define captures decisions/plans as a parent issue + sub-issues, executors post task progress, merge-back PRs close their plan issues, ship closes the phase
+
+- **gh absent or not authenticated + the user picks 2:** relay GitHub's official setup guide — `https://docs.github.com/en/github-cli/github-cli/quickstart` (install + `gh auth login`). Either they authenticate now (re-check `gh auth status`) or you write the config anyway — the mirror stays dormant until gh works; every mirror path is never-block, so nothing else changes.
+- **When enabling, gather from detection (ask only what detection can't settle):**
+  - `host` — default `github.com`; ask only for a GitHub Enterprise Server host.
+  - `account` — the active account from `gh auth status`; ask only when multiple accounts are stored on the host.
+  - `repo` — `OWNER/REPO`: detect via `gh repo view --json nameWithOwner -q .nameWithOwner` (or parse `git remote`), confirm with the user when detection is ambiguous or fails. The helper passes `-R` explicitly on every call and NEVER infers the repo from remotes at runtime — this key is the binding.
+  - optional `labels` (default `["shippedd"]` — ask only if the user points at an existing label scheme) and optional `token_env` (a name like `SHIPPEDD_GH_TOKEN` for headless/CI; it names an env var, NEVER a secret value — no secret ever lands in the repo or config).
+- Write on enable (merged into `<state>/config.json`): `{"github": {"mirror": true, "host": "<host>", "account": "<account>", "repo": "<OWNER/REPO>"}}` — plus `labels`/`token_env` only when customized. Absent `github` section or absent `mirror` key = off.
 
 ## Step 8 — HANDOFF
 
@@ -247,7 +254,7 @@ I will create/modify:
     skip     personas — hermes has no agents dir; subagents run as profiles in ~/.hermes/config.yaml   (hermes only — instead of the wire line)
   CONFIG
     write    .pi/planning.json   (only the non-default keys chosen) — or: none, all defaults
-    write    <state>/config.json (toggles [+ github] [+ runs placement] [+ disposition])
+    write    <state>/config.json (toggles [+ github mirror: host/account/repo] [+ runs placement] [+ disposition])
     append   AGENTS.md — "## Workflow" block   (or: merge — block already exists)
   RUNS   (only when applicable — placement created a worktree / gitignored a dir)
     create   worktree <path> (branch <basename>)   — the runs worktrees folder
@@ -285,7 +292,7 @@ This repo runs **shippEdd** — a phase loop (discuss → research → plan → 
 | state dir ≠ `.planning` | `.pi/planning.json` → `state_dir` | only non-default |
 | model tier overrides | `.pi/planning.json` → `models.<role>` | only changed roles |
 | workflow toggles | `<state>/config.json` → `workflow` | always (explicit values) |
-| github mirror | `<state>/config.json` → `github.mirror_issues` | only if chosen |
+| github mirror | `<state>/config.json` → `github.*` (mirror/host/account/repo [+ labels/token_env]) | only if chosen |
 | runs placement (mode/dir) | `<state>/config.json` → `runs` | only non-default choices (worktrees+folder or branch) |
 | disposition | `<state>/config.json` → `disposition` | only "auto-merge"; pr is the absent default |
 | everything default | **no `.pi/planning.json` at all** | absent = default |
@@ -302,5 +309,5 @@ If state markers already exist when you reach step 1, skip the fresh wizard:
      ➡️ 1. yes — create only the missing files (a differing persona gets a diff and a replace-or-keep choice first)
        2. no — leave everything as is
    ```
-3. Show the current config (state dir, tiers, toggles, runs placement, disposition) and offer to change any single setting — placement changes re-ask the step 4b questions.
+3. Show the current config (state dir, tiers, toggles, runs placement, disposition, GitHub mirror) and offer to change any single setting — placement changes re-ask the step 4b questions — GitHub mirror changes re-ask the step 7 question.
 4. Never overwrite user content. Only re-run the full wizard if the user explicitly asks to "start over".

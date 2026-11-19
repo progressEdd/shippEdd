@@ -56,7 +56,7 @@ Read (never ask for) the state:
       2. no — stop here
   ```
   On yes: derive a short slug and one-line goal from the answer, append the phase to `## Phases` and a matching `### Phase <NN>` details block (goal, requirements "from grilling", empty `Plans:` list) to ROADMAP, and point `## Next up` at it. `<NN>` is the next integer, zero-padded to two digits. Then continue.
-- **Resume**: if the target phase's folder already exists, read its `NN-CONTEXT.md` decisions table and any `NN-*-PLAN.md` files. Settled decisions are locked — never re-ask them. A phase that already has plans gets one question: replan (your edits go to the planner, step 6) or stop and head for `/skill:implement`.
+- **Resume**: if the target phase's folder already exists, read its `NN-CONTEXT.md` decisions table and any `NN-*-PLAN.md` files. Settled decisions are locked — never re-ask them. A phase that already has plans gets one question: replan (your edits go to the planner, step 6) or stop and head for `/skill:implement`. A resume that edits decisions or plans re-syncs the GitHub mirror at its next approval — step 7's capture sweep IS the re-sync (idempotent, never-block).
 
 Report a two-line summary (phase target, toggles in effect), then scaffold.
 
@@ -260,6 +260,7 @@ Approval requires the research digest if research ran: the products gate (step 4
 
 On approval:
 
+- **Mirror capture sweep (opt-in, never-block)** — iff `<state>/config.json` has `github.mirror: true` (absent = off): run `bash .agents/skills/shippEdd/scripts/gh-mirror.sh <state> <NN> <slug> capture` and report its receipt verbatim (created/updated/closed/missed + the retry command). A missing `gh`, an auth failure, or a partial sweep NEVER blocks approval — the local markdown is the complete record and the sweep is idempotent (re-running define, or the sweep itself, repairs a partial mirror). The sweep also refreshes the advisory caches — the `issue` column in CONTEXT's decisions table, `issue:` in each plan's frontmatter, the parent number in the CONTEXT header — GitHub owns the issue numbers; local fields are never load-bearing. This same sweep is the drift re-sync and it runs at EVERY approval, fresh or post-edit: edited rows rewrite their issue bodies, dropped rows close theirs with a comment, new rows/plans mint theirs, and FX plans nest under the plan their `fixes:` frontmatter names.
 - `<state>/STATE.md` — frontmatter: `next_action: /skill:implement`, `progress: planned`. Body: the phase name and a one-line status ("planned — N plans in M waves, awaiting execution").
 - `<state>/ROADMAP.md` — fill this phase's `Plans:` list with the approved plan IDs and one-liners. Never tick phase checkboxes — completing phases is `/skill:review`'s job, not yours.
 
