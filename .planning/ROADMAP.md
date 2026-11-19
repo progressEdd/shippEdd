@@ -6,7 +6,7 @@
 
 ## Next up
 
-**Phase 07: suite-refinements** — awaiting /skill:define
+**none — roadmap complete**
 
 ## Phases
 
@@ -16,7 +16,7 @@
 - [x] **Phase 04: unattended-implement-loop** — the two banked todos land: merge-back never halts on the branch delete (todo 06), and opt-in auto mode runs whole phases unattended (todo 07)
 - [x] **Phase 05: dispatcher-consolidation** — todos 08 + 09 land plus the grilled expansion: suite-root shared scripts, config-driven worktree-aware run placement, PR-by-default disposition, oracle readout — no more `.planning/runs/`
 - [x] **Phase 06: github-mirror** — decisions captured as GitHub issues/sub-issues via `gh` (opt-in); plans ship as PRs that close their issues; builds on 05's config + `gh` groundwork
-- [ ] **Phase 07: suite-refinements** — deliver the 4 promoted todos: planning archive pruning (10), shared run watcher (11), disposition-gated ship PR offer (12), mirror-ship live shape + jq-free helper (13)
+- [x] **Phase 07: suite-refinements** — deliver the 4 promoted todos: planning archive pruning (10), shared run watcher (11), disposition-gated ship PR offer (12), mirror-ship live shape + jq-free helper (13)
 
 ## Phase details
 
@@ -159,7 +159,7 @@ Plans:
 | 04 `unattended-implement-loop` | 6/6 | Shipped | 2026-11-17 |
 | 05 `dispatcher-consolidation` | 8/8 | Shipped | 2026-11-18 |
 | 06 `github-mirror` | 6/6 | Shipped | 2026-11-18 |
-| 07 `suite-refinements` | 0/0 | Not started | — |
+| 07 `suite-refinements` | 4/4 | Shipped | 2026-11-19 |
 
 <!--
 Conventions:

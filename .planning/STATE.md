@@ -1,13 +1,13 @@
 ---
-next_action: /skill:review
-progress: executed
+next_action: /skill:define
+progress: shipped
 ---
 
 # State
 
-**Phase:** 07 suite-refinements — executed — 4 plans sequential, merged per target (PR #76 → master, PR #77 → progressEdd); awaiting review
-**Next:** `/skill:review` — verify coverage (19-case selftest green on bare PATH; parity `badba3a` = 560d1d5..cbb99e2) and ship
-**Note:** local progressEdd carries docs commits ahead of origin (8ec87b7→fc18c54 replayed post-#77) — review's ship step pushes
+**Phase:** 07 suite-refinements — shipped — VERIFICATION PASSED 4/4 todos · 9/9 decisions · 8/8 verifies · no gaps
+**Next:** roadmap complete — `/skill:todo` to bank what comes next, or `/skill:define` to mint Phase 08 from a one-line intent
+**Note:** first archive offer fires at phase 10's ship (7 shipped, cadence 5)
 
 <!--
 STATE.md is the router surface. The frontmatter (next_action, progress) is the
