@@ -4,5 +4,11 @@
     "research": true,
     "ui_phase": false,
     "ui_safety_gate": false
+  },
+  "github": {
+    "mirror": true,
+    "host": "github.com",
+    "account": "progressEdd",
+    "repo": "progressEdd/shippEdd"
   }
 }
