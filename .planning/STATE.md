@@ -1,13 +1,13 @@
 ---
-next_action: /skill:implement
-progress: planned
+next_action: /skill:review
+progress: executed
 ---
 
 # State
 
-**Phase:** 07 suite-refinements — planned — 4 plans in 3 waves, awaiting execution
-**Next:** `/skill:implement` — runs wave 1 (07-01, 07-02); note: 07-04's preflight expects a merged master PR mid-loop under disposition `pr`
-**Note:** mirror live — parent #62 · D1–D9 #63–#71 · plans #72–#75 · first archive offer fires at phase 10's ship (7 % 5 ≠ 0)
+**Phase:** 07 suite-refinements — executed — 4 plans sequential, merged per target (PR #76 → master, PR #77 → progressEdd); awaiting review
+**Next:** `/skill:review` — verify coverage (19-case selftest green on bare PATH; parity `badba3a` = 560d1d5..cbb99e2) and ship
+**Note:** local progressEdd carries docs commits ahead of origin (8ec87b7→fc18c54 replayed post-#77) — review's ship step pushes
 
 <!--
 STATE.md is the router surface. The frontmatter (next_action, progress) is the

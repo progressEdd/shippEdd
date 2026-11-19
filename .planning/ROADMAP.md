@@ -144,10 +144,10 @@ Plans:
   4. `cmd_ship` reads live gh's `subIssues` object shape so sub-issues actually close at ship, fake-gh fixtures match live shapes, and the helper depends on bash + gh only — gh's own `--jq` for gh output, flat-key bash config reader that fails loud (todo 13)
 
 Plans:
-- [ ] 07-01: gh-mirror.sh jq-free — flat-key fail-loud config reader, TSV issue cache via gh's embedded --jq, live subIssues.nodes shape; fake-gh bash --jq + selftest case 18 (todo 13, D4+D9)
-- [ ] 07-02: review ship step — disposition+change-scope-gated PR offer (todo 12) + cadence-gated RELEASES.md archive offer with era-aware SHA chain (todo 10) + runs-dir.sh archive-cadence query (D1, D5, D6, D8)
-- [ ] 07-03: shared scripts/watch-run.sh engine (plan|research|verify) + thin watch-wave.sh wrapper + define/review watcher prose + selftest case 19 (todo 11, D7)
-- [ ] 07-04: vendored refresh on progressEdd — squash-merge + byte-parity + straggler sweep + required 19-case selftest on bare PATH
+- [x] 07-01: gh-mirror.sh jq-free — flat-key fail-loud config reader, TSV issue cache via gh's embedded --jq, live subIssues.nodes shape; fake-gh bash --jq + selftest case 18 (todo 13, D4+D9)
+- [x] 07-02: review ship step — disposition+change-scope-gated PR offer (todo 12) + cadence-gated RELEASES.md archive offer with era-aware SHA chain (todo 10) + runs-dir.sh archive-cadence query (D1, D5, D6, D8)
+- [x] 07-03: shared scripts/watch-run.sh engine (plan|research|verify) + thin watch-wave.sh wrapper + define/review watcher prose + selftest case 19 (todo 11, D7)
+- [x] 07-04: vendored refresh on progressEdd — squash-merge + byte-parity + straggler sweep + required 19-case selftest on bare PATH
 
 ## Progress
 
