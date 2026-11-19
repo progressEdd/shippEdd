@@ -90,7 +90,7 @@ merges:  main before 03-03 (first consumer) · docs at end
    bash <this skill's folder>/scripts/merge-back.sh <state> <NN> <slug> <target>
    ```
 
-   Report its output verbatim. In `pr` disposition a successful merge-back prints `PR <url> …`; a `PR unavailable: …` receipt is a success-shaped fallback (exit 0) — report it and continue; the branch waits for a hand-opened PR or an auto-merge re-run. **On halt** (exit 1 with `HALT:` / `DRIFT:` / `CONFLICT:` / `BUDGET:` lines) — step 5's merge recovery.
+   Report its output verbatim. When the GitHub mirror is on (`github.mirror` in config), the PR body carries `Closes #N` keywords for the target's open plan issues, and a `PR unavailable` receipt that still pushed the branch names the compare URL — mirror behavior is never-block either way (a mirror miss never halts or fails a merge). In `pr` disposition a successful merge-back prints `PR <url> …`; a `PR unavailable: …` receipt is a success-shaped fallback (exit 0) — report it and continue; the branch waits for a hand-opened PR or an auto-merge re-run. **On halt** (exit 1 with `HALT:` / `DRIFT:` / `CONFLICT:` / `BUDGET:` lines) — step 5's merge recovery.
 3. Dispatch:
 
    ```
@@ -116,7 +116,7 @@ merges:  main before 03-03 (first consumer) · docs at end
   git commit -m "chore(<NN>-<slug>): NN-YY executed — summary recorded"
   ```
 
-  (skip the commit when nothing staged — e.g. an unchanged re-gate).
+  (skip the commit when nothing staged — e.g. an unchanged re-gate). Executors also flip their plan issue's tasklist line after each task (the prompt contract's `gh-mirror.sh progress` call — config-gated, never-block; a miss lands in their SUMMARY's deviations and is otherwise ignored).
 - **More plans remain** → back to step 3 for the next plan in order.
 - **Last plan resolved** → for each target with an unmerged agent branch (in first-dispatch order): `bash <this skill's folder>/scripts/merge-back.sh <state> <NN> <slug> <target>` — halts go to step 5. After **all** merges succeed: tick the merged plans' checkboxes in ROADMAP's `Plans:` list, update STATE.md's body ("executed — <ids> merged into their targets"), then `git add -- <state>` and, if anything staged, `git commit -m "chore(<NN>-<slug>): phase executed — plans <ids> merged, summaries recorded"` in this checkout. → step 6.
 - **Manual mode re-entry** starts here: re-run the oracle (step 1) on the just-watched plan; a failed or blocked plan gets the grilling question (inspect the log tail / redispatch with `--force` / record the skip in CONTEXT.md's `## Skipped plans`), never silent auto-recovery; merge points fire by the same step 2 rule.
