@@ -1,13 +1,13 @@
 ---
-next_action: /skill:define
+next_action: /skill:todo
 progress: shipped
 ---
 
 # State
 
-**Phase:** 06 github-mirror
-**Status:** shipped — PASSED (06-verify-r1): 10/10 requirements · 20/20 decisions · 16/16 task verifies · selftest 55 checks ×2 · live mirror tree verified; no gaps (recorded deviations in VERIFICATION.md Notes)
-**Next:** roadmap complete — `/skill:define` to mint a new phase from a one-line intent, or `/skill:todo` to bank what comes next — in a fresh session
+**Phase:** 06 github-mirror — shipped (PASSED 10/10 · 20/20 · 16/16; no gaps)
+**Next:** `/skill:todo --promote` to mint **Phase 07** from the four pending todos (10 archive-pruning · 11 shared-run-watcher · 12 ship-pr-offer · 13 mirror-ship live-shape + jq-free helper) — decided 2026-11-18 at 06's ship close-out — then `/skill:define` in a fresh session
+**Note:** todo 13 is medium severity — every future mirror ship hits the 0-closed-sub-issues defect until it lands
 
 <!--
 STATE.md is the router surface. The frontmatter (next_action, progress) is the
