@@ -18,6 +18,7 @@
 # flip + never-block, (16) guarded close + pr-body + merge-back PR-body
 # integration, (17) ship sweep (MIR-09). Phase 07 adds (18) the jq-free mirror
 # config law: flat-key defaults, labels[0], loud corrupt-config receipt (todo 13).
+# Phase 07 adds (19) the shared watcher engine's research + verify kinds (todo 11).
 # Prints one line per check; ends with SELFTEST PASSED/FAILED. Touches nothing
 # outside its own $TMPDIR sandbox.
 #
@@ -595,6 +596,30 @@ out="$(fake .planning 11 mir ready 2>&1)"; rc=$?
 [ "$rc" = 0 ] && printf '%s' "$out" | grep -qF 'config miss:' \
   && ok "corrupt config: loud named receipt, exit 0 (never a silent mirror=off)" || bad "corrupt config silent: rc=$rc out=$out"
 rm -f "$repo/.planning/config.json"
+
+echo "case 19 — shared watcher engine: research + verify kinds (todo 11)"
+W="$repo/.agents/skills/shippEdd/scripts/watch-run.sh"
+printf '# stub research\n' > "$repo/.planning/phases/09-demo/09-RESEARCH.md"
+w="$(bash "$W" .planning 09 demo research 09-research 2>&1)"; wrc=$?
+[ "$wrc" -eq 0 ] && printf '%s' "$w" | grep -qF 'resolved 09-research: done (RESEARCH.md present)' \
+  && ok "watch-run research kind resolves on the artifact oracle" || bad "watch-run research rc=$wrc out=$w"
+cat > "$repo/.planning/phases/09-demo/VERIFICATION.md" <<'EOF3'
+# Phase 09-demo Verification
+
+## Verdict
+
+GAPS FOUND — fix loop required
+EOF3
+printf '999999999\n' > "$H/09-demo/09-verify.running"   # dead PID — the artifact must win anyway
+w="$(bash "$W" .planning 09 demo verify 09-verify 2>&1)"; wrc=$?
+[ "$wrc" -eq 0 ] && printf '%s' "$w" | grep -qF 'resolved 09-verify: done (VERIFICATION.md verdict)' \
+  && ok "verify kind: a filled verdict beats a stale marker (products first)" || bad "watch-run verify rc=$wrc out=$w"
+rm -f "$repo/.planning/phases/09-demo/09-RESEARCH.md"
+printf 'no such input\n' > "$H/09-demo/09-r2.failed"
+w="$(bash "$W" .planning 09 demo research 09-r2 2>&1)"; wrc=$?
+[ "$wrc" -eq 2 ] && printf '%s' "$w" | grep -qF 'resolved 09-r2: failed — no such input' \
+  && ok "failed research run: exit 2 with the marker reason" || bad "watch-run failed rc=$wrc out=$w"
+rm -f "$H/09-demo/09-verify.running" "$H/09-demo/09-r2.failed" "$repo/.planning/phases/09-demo/VERIFICATION.md"
 
 echo
 if [ "$fail" -eq 0 ]; then echo "SELFTEST PASSED ($pass checks)"; exit 0; fi
